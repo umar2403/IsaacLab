@@ -515,6 +515,20 @@ class RewardsCfg:
         },
     )
 
+    # Goal-grasp shaping from the BODex/UltraDexGrasp Inspire Hand library:
+    # pulls the palm toward the sampled goal grasp pose and, once close, the
+    # six proximal joints toward the goal hand configuration
+    grasp_goal_palm = RewTerm(
+        func=mdp.grasp_goal_palm_reward,
+        weight=1.0,
+        params={"robot_cfg": SceneEntityCfg("robot"), "pos_std": 0.15},
+    )
+    grasp_goal_hand = RewTerm(
+        func=mdp.grasp_goal_hand_config_reward,
+        weight=0.3,
+        params={"robot_cfg": SceneEntityCfg("robot"), "q_std": 0.5, "gate_dist": 0.20},
+    )
+
     # Aggregated action penalties (function returns positive, weight applies negative sign)
     action_smoothness = RewTerm(
         func=action_smoothness_penalty,
@@ -652,6 +666,19 @@ class EventCfg:
     reset_distractor_8 = EventTerm(func=mdp.reset_root_state_uniform, mode="reset", params={"pose_range": {"x": (-0.03, 0.03), "y": (-0.03, 0.03), "z": (0.0, 0.0)}, "velocity_range": {}, "asset_cfg": SceneEntityCfg("distractor_8")})
     reset_distractor_9 = EventTerm(func=mdp.reset_root_state_uniform, mode="reset", params={"pose_range": {"x": (-0.03, 0.03), "y": (-0.03, 0.03), "z": (0.0, 0.0)}, "velocity_range": {}, "asset_cfg": SceneEntityCfg("distractor_9")})
     reset_distractor_10 = EventTerm(func=mdp.reset_root_state_uniform, mode="reset", params={"pose_range": {"x": (-0.03, 0.03), "y": (-0.03, 0.03), "z": (0.0, 0.0)}, "velocity_range": {}, "asset_cfg": SceneEntityCfg("distractor_10")})
+
+    # Assign each env a goal grasp from the BODex/UltraDexGrasp library
+    # (must come after reset_target_object so it reads the new cube pose)
+    sample_grasp_goal = EventTerm(
+        func=mdp.sample_grasp_goal,
+        mode="reset",
+        # random_selection: a uniform random library grasp per episode (works
+        # with the max(pose, grasp-gate) palm reward: the grasp endpoint pays
+        # fully whichever goal was drawn). Alternatives: fixed_grasp_idx >= 0
+        # trains one grasp only; both off -> nearest-palm selection.
+        params={"object_cfg": SceneEntityCfg("target_object"),
+                "fixed_grasp_idx": -1, "random_selection": True},
+    )
 
     # apply_high_friction_to_fingers = EventTerm(
     #     func=mdp.randomize_rigid_body_material,

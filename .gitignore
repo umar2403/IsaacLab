@@ -69,3 +69,9 @@ tests/
 
 # Docker history
 .isaac-lab-docker-history
+
+# Local conda installer (not source)
+/Miniconda3-latest-Linux-x86_64.sh
+
+# Vendored third-party grasp-synthesis repo (large binary assets + nested .git)
+**/grasp_sampler/ultradex_repo/
