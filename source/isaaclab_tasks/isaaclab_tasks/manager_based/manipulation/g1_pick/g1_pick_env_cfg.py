@@ -518,9 +518,13 @@ class RewardsCfg:
     # Goal-grasp shaping from the BODex/UltraDexGrasp Inspire Hand library:
     # pulls the palm toward the sampled goal grasp pose and, once close, the
     # six proximal joints toward the goal hand configuration
+    # NOTE: keep this weight high enough to actually drive the palm to the goal —
+    # grasp_goal_hand is *gated* on palm proximity, so starving this term also
+    # starves the finger-matching reward. 0.5 keeps it below the task reward
+    # (reduces conflict with posture_rew) while still opening the hand gate.
     grasp_goal_palm = RewTerm(
         func=mdp.grasp_goal_palm_reward,
-        weight=1.0,
+        weight=0.5,
         params={"robot_cfg": SceneEntityCfg("robot"), "pos_std": 0.15},
     )
     grasp_goal_hand = RewTerm(
@@ -672,12 +676,15 @@ class EventCfg:
     sample_grasp_goal = EventTerm(
         func=mdp.sample_grasp_goal,
         mode="reset",
-        # random_selection: a uniform random library grasp per episode (works
-        # with the max(pose, grasp-gate) palm reward: the grasp endpoint pays
-        # fully whichever goal was drawn). Alternatives: fixed_grasp_idx >= 0
-        # trains one grasp only; both off -> nearest-palm selection.
+        # FIXED single grasp (idx 11): the only top-down grasp in the library
+        # (palm ~directly above the cube, |xy|=4cm), so it aligns with the task
+        # reward's posture target instead of fighting it. The goal is now a
+        # deterministic function of the observed cube pose -> learnable.
+        # random_selection=True re-introduces a hidden, unobserved, per-episode
+        # random target and breaks the pick; only re-enable it after the goal
+        # pose is added to the observation vector (goal-conditioned RL).
         params={"object_cfg": SceneEntityCfg("target_object"),
-                "fixed_grasp_idx": -1, "random_selection": True},
+                "fixed_grasp_idx": 11, "random_selection": False},
     )
 
     # apply_high_friction_to_fingers = EventTerm(
