@@ -35,7 +35,7 @@ _DEFAULT_GRASP_FILE = os.path.join(
 # Rotates position AND orientation together about the cube center, so the grasp
 # stays valid (cube is symmetric under 90 deg z-rotation). -90 = clockwise seen
 # from above (robot looking down). Set 0.0 to disable.
-_GOAL_YAW_DEG = 90.0
+_GOAL_YAW_DEG = 0.0
 
 # BODex joint order == policy hand-action order (thumb yaw/pitch, index, middle, ring, pinky)
 _HAND_JOINT_NAMES = [

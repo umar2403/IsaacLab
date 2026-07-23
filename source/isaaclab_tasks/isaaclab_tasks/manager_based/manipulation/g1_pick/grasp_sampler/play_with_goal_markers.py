@@ -67,6 +67,7 @@ from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.utils.assets import retrieve_file_path
 from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
+from isaaclab.utils.math import quat_error_magnitude
 import isaaclab.sim as sim_utils
 
 from isaaclab_rl.rsl_rl import RslRlBaseRunnerCfg, RslRlVecEnvWrapper
@@ -232,6 +233,13 @@ def main(env_cfg: ManagerBasedRLEnvCfg, agent_cfg: RslRlBaseRunnerCfg):
             # palm -> cube center distance
             cube_pos = env.unwrapped.scene[term._object_name].data.root_pos_w
             dist_cube = torch.norm(palm_pos - cube_pos, dim=1)
+            # wrist ORIENTATION error (palm quat vs goal quat)
+            palm_quat = robot.data.body_quat_w[:, term._palm_body_idx]
+            orient_err = quat_error_magnitude(palm_quat, goal_quat)      # rad
+            # FINGER config error (current 6 proximal joints vs goal grasp)
+            q_now = robot.data.joint_pos[:, term._hand_joint_ids]
+            q_err = torch.norm(q_now - term.goal_hand_q, dim=1)          # rad, L2 over 6 joints
+            q_err_per = (q_now - term.goal_hand_q).abs()                 # per-joint |error|
 
             # ghost hand at the goal (env 0): FK the collision spheres to the goal config
             gp0 = goal_pos[0].cpu().numpy()
@@ -256,9 +264,15 @@ def main(env_cfg: ManagerBasedRLEnvCfg, agent_cfg: RslRlBaseRunnerCfg):
             if timestep % 15 == 0:
                 d0 = dist[0].item()
                 dc0 = dist_cube[0].item()
+                oe0 = np.degrees(orient_err[0].item())         # wrist orientation error
+                qe0 = np.degrees(q_err[0].item())              # finger config error (L2)
+                per = np.degrees(q_err_per[0].cpu().numpy())   # [th_yaw,th_pitch,idx,mid,ring,pinky]
                 tag = "REACHED" if d0 < args_cli.reach_thresh else "       "
                 print(f"[goal] step {timestep:4d}  palm→goal = {d0*100:5.1f} cm   "
-                      f"palm→cube = {dc0*100:5.1f} cm  {tag}", flush=True)
+                      f"palm→cube = {dc0*100:5.1f} cm   wrist_err = {oe0:5.1f}°   "
+                      f"finger_err = {qe0:5.1f}°  {tag}", flush=True)
+                print(f"        finger err per joint [th_yaw,th_pitch,idx,mid,ring,pinky] = "
+                      f"{np.round(per, 1)}", flush=True)
 
         if args_cli.video:
             timestep += 1
@@ -273,7 +287,14 @@ def main(env_cfg: ManagerBasedRLEnvCfg, agent_cfg: RslRlBaseRunnerCfg):
             if wait > 0:
                 time.sleep(wait)
 
+    # close the env first so RecordVideo finalizes/writes the MP4 ...
     env.close()
+    if args_cli.video:
+        print(f"[goal] video written to "
+              f"{os.path.join(log_dir, 'videos', 'play_markers')}", flush=True)
+    # ... then hard-exit. simulation_app.close() hangs indefinitely in headless
+    # mode AFTER the run has finished, which looks like the script freezing.
+    os._exit(0)
 
 
 if __name__ == "__main__":
