@@ -17,6 +17,11 @@ from check_grasps_offline import parse, fk_tips, cube_surface_dist, URDF, HERE
 RECENTERED = os.path.join(HERE, 'grasp_dataset', 'cube_5cm_grasps_recentered.npz')
 OUT = os.path.join(HERE, 'grasp_dataset', 'cube_5cm_grasps_valid.npz')
 MAX_KEEP = 32
+# Keep only near-top-down grasps: approach direction within this angle of
+# straight-down, so the palm is (roughly) horizontal facing the cube from above.
+# The G1 arm reaches a palm-down top approach far more easily than a vertical
+# palm / side approach. Set to 180 to disable the constraint.
+TOPDOWN_MAX_DEG = 50.0
 
 
 def main():
@@ -25,9 +30,11 @@ def main():
     joints = parse(URDF)
     N = g.shape[0]
 
+    topdown_thresh = -np.cos(np.radians(TOPDOWN_MAX_DEG))
     keep, scores = [], []
+    n_topdown_rejected = 0
     for i in range(N):
-        pos, quat, q6 = g[i, 0, 1, :3], g[i, 0, 1, 3:7], g[i, 0, 1, 7:]
+        pre, pos, quat, q6 = g[i, 0, 0, :3], g[i, 0, 1, :3], g[i, 0, 1, 3:7], g[i, 0, 1, 7:]
         Rm = R.from_quat(quat, scalar_first=True).as_matrix()
         tips_obj = (Rm @ fk_tips(joints, q6).T).T + pos
         sd = cube_surface_dist(tips_obj)
@@ -37,9 +44,18 @@ def main():
         # tray compatibility: nothing reaches below the cube underside (z=-0.025
         # in object frame, tray surface right below); palm not below cube center
         tray_ok = tips_obj[:, 2].min() > -0.030 and pos[2] > -0.02
-        if geom_ok and tray_ok:
+        # top-down = the palm faces DOWN: the hand's finger/approach axis (local z)
+        # points downward, so the palm comes onto the cube from above (easy for the
+        # G1 arm) rather than sideways with a vertical palm. Measured from the grasp
+        # ORIENTATION (not stage displacement, which isn't a reliable approach dir).
+        finger_axis_world_z = Rm[2, 2]        # world-z component of the hand local-z
+        topdown_ok = finger_axis_world_z < topdown_thresh
+        if geom_ok and tray_ok and not topdown_ok:
+            n_topdown_rejected += 1
+        if geom_ok and tray_ok and topdown_ok:
             keep.append(i)
             scores.append(np.abs(thumb) + np.sort(np.abs(fingers))[:2].sum())
+    print(f"(rejected {n_topdown_rejected} geometrically-valid grasps for non-top-down approach)")
 
     order = np.argsort(scores)
     keep = [keep[j] for j in order][:MAX_KEEP]

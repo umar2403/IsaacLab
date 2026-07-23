@@ -26,7 +26,7 @@ from util.bodex_util import GraspSynthesizer  # noqa: E402
 
 CUBE_ASSET = os.path.join(REPO, 'asset', 'object_mesh', 'cube')
 CUBE_SIZE = 0.05  # unit cube mesh scaled to 5 cm
-NUM_GRASP = 100
+NUM_GRASP = 300
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'grasp_dataset')
 
 

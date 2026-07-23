@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab.assets import Articulation, RigidObject
 from isaaclab.managers import ManagerTermBase, SceneEntityCfg
-from isaaclab.utils.math import quat_apply, quat_mul, quat_from_matrix
+from isaaclab.utils.math import quat_apply, quat_mul, quat_from_matrix, quat_error_magnitude
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
@@ -30,6 +30,12 @@ _DEFAULT_GRASP_FILE = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "grasp_sampler", "grasp_dataset", "cube_5cm_grasps_valid.npz",
 )
+
+# EDIT ME: rotate every goal grasp about the cube's vertical (robot-frame z) axis.
+# Rotates position AND orientation together about the cube center, so the grasp
+# stays valid (cube is symmetric under 90 deg z-rotation). -90 = clockwise seen
+# from above (robot looking down). Set 0.0 to disable.
+_GOAL_YAW_DEG = 90.0
 
 # BODex joint order == policy hand-action order (thumb yaw/pitch, index, middle, ring, pinky)
 _HAND_JOINT_NAMES = [
@@ -77,6 +83,14 @@ class sample_grasp_goal(ManagerTermBase):
         self.grasp_pos_obj = torch.tensor(g[:, :3], dtype=torch.float32, device=device)
         self.grasp_quat_obj = torch.tensor(g[:, 3:7], dtype=torch.float32, device=device)
         self.grasp_q = torch.tensor(g[:, 7:], dtype=torch.float32, device=device)
+
+        # rotate only the goal ORIENTATION about the cube's vertical z (see _GOAL_YAW_DEG);
+        # position is left unchanged
+        if _GOAL_YAW_DEG != 0.0:
+            a = torch.deg2rad(torch.tensor(_GOAL_YAW_DEG, device=device))
+            qz = torch.tensor([torch.cos(a / 2), 0.0, 0.0, torch.sin(a / 2)], device=device)  # wxyz, about +z
+            qz_b = qz.unsqueeze(0).expand(self.grasp_quat_obj.shape[0], 4)
+            self.grasp_quat_obj = quat_mul(qz_b, self.grasp_quat_obj)
         # pregrasp/squeeze finger stages (used by the demonstration oracle)
         self.grasp_q_pre = torch.tensor(grasps[:, 0, 0, 7:], dtype=torch.float32, device=device)
         self.grasp_q_squeeze = torch.tensor(grasps[:, 0, 2, 7:], dtype=torch.float32, device=device)
@@ -214,42 +228,41 @@ def _get_goal_term(env: ManagerBasedRLEnv) -> sample_grasp_goal:
     return term
 
 
-def _grasp_quality_gate(env: ManagerBasedRLEnv, term: sample_grasp_goal) -> torch.Tensor:
-    """Soft AND of thumb + finger cluster being close to the object (same
-    construction as the task reward's grasp gate). ~1 when actually grasping."""
-    robot: Articulation = env.scene["robot"]
-    obj: RigidObject = env.scene[term._object_name]
-    if not hasattr(term, "_tip_body_ids"):
-        term._tip_body_ids = [robot.body_names.index(n) for n in
-                              ["R_thumb_distal", "R_index_intermediate", "R_middle_intermediate",
-                               "R_ring_intermediate", "R_pinky_intermediate"]]
-    tips = robot.data.body_pos_w[:, term._tip_body_ids]              # (N,5,3)
-    d = torch.norm(tips - obj.data.root_pos_w.unsqueeze(1), dim=2)   # (N,5)
-    d_thumb = (d[:, 0] - 0.025).clamp(min=0.0)
-    d_fingers = (d[:, 1:].mean(dim=1) - 0.025).clamp(min=0.0)
-    return (1.0 - torch.tanh(d_thumb / 0.06)) * (1.0 - torch.tanh(d_fingers / 0.06))
-
-
 def grasp_goal_palm_reward(
     env: ManagerBasedRLEnv,
     robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
     pos_std: float = 0.15,
+    orient_std: float = 0.6,
+    orient_weight: float = 0.5,
+    pos_mode: str = "full",
 ) -> torch.Tensor:
-    """Reward for moving the palm toward the goal grasp pose — OR actually grasping.
+    """POSE guidance toward the UltraDexGrasp goal: palm position + wrist orientation.
 
-    Taking the max with a real grasp gate makes "holding the object in any
-    working grasp" pay at least as much as "hovering at the library pose", so
-    the shaping can never penalize the transition from approach to an actual
-    grasp (the hand's achievable grasp offset differs from the library's).
-    Because the goal is object-relative, the term stays maximal during a lift.
+    Deliberately does NOT reward grasping — that is owned entirely by
+    compute_task_reward's grasp term. This term only pulls the palm toward the
+    goal grasp's pose; the task reward then handles closing and lifting.
+
+    pos_mode:
+      "full"   - distance to the goal position in all 3 axes.
+      "height" - only the VERTICAL (z) offset to the goal. Use this when the
+                 task reward already centres the palm horizontally (posture +
+                 reach) and the grasp library's unique positional contribution
+                 is the correct grasp HEIGHT (~hand-length above the object),
+                 which task_reward's posture target undershoots.
     """
     term = _get_goal_term(env)
     term.update_live_goals(env)  # goal follows the object if it gets pushed
     robot: Articulation = env.scene[robot_cfg.name]
     palm_pos = robot.data.body_pos_w[:, term._palm_body_idx]
-    d = torch.norm(palm_pos - term.goal_pos_w, dim=1)
-    pose_proximity = 1.0 - torch.tanh(d / pos_std)
-    return torch.maximum(pose_proximity, _grasp_quality_gate(env, term))
+    palm_quat = robot.data.body_quat_w[:, term._palm_body_idx]
+    if pos_mode == "height":
+        d_pos = torch.abs(palm_pos[:, 2] - term.goal_pos_w[:, 2])
+    else:
+        d_pos = torch.norm(palm_pos - term.goal_pos_w, dim=1)
+    pos_rew = 1.0 - torch.tanh(d_pos / pos_std)
+    ang = quat_error_magnitude(palm_quat, term.goal_quat_w)  # radians, [0, pi]
+    orient_rew = 1.0 - torch.tanh(ang / orient_std)
+    return (1.0 - orient_weight) * pos_rew + orient_weight * orient_rew
 
 
 def grasp_goal_hand_config_reward(

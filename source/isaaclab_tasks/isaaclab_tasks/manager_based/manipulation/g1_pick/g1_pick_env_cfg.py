@@ -520,16 +520,22 @@ class RewardsCfg:
     # six proximal joints toward the goal hand configuration
     # NOTE: keep this weight high enough to actually drive the palm to the goal —
     # grasp_goal_hand is *gated* on palm proximity, so starving this term also
-    # starves the finger-matching reward. 0.5 keeps it below the task reward
-    # (reduces conflict with posture_rew) while still opening the hand gate.
+    # starves the finger-matching reward. Keep it well below the task reward
+    # (reduces conflict with posture_rew) but high enough to still open the gate.
     grasp_goal_palm = RewTerm(
         func=mdp.grasp_goal_palm_reward,
-        weight=0.5,
-        params={"robot_cfg": SceneEntityCfg("robot"), "pos_std": 0.15},
+        weight=1.0,
+        # pos_mode="height": only the VERTICAL offset to the goal is rewarded.
+        # task_reward's posture+reach already centre the palm horizontally, so the
+        # grasp library's unique positional info is the correct grasp HEIGHT
+        # (~17cm above the cube = hand length), which posture's 8cm target
+        # undershoots. Combined 50/50 with the wrist-orientation match.
+        params={"robot_cfg": SceneEntityCfg("robot"), "pos_std": 0.15,
+                "orient_std": 0.6, "orient_weight": 0.5, "pos_mode": "height"},
     )
     grasp_goal_hand = RewTerm(
         func=mdp.grasp_goal_hand_config_reward,
-        weight=0.3,
+        weight=1.0,
         params={"robot_cfg": SceneEntityCfg("robot"), "q_std": 0.5, "gate_dist": 0.20},
     )
 
@@ -684,7 +690,7 @@ class EventCfg:
         # random target and breaks the pick; only re-enable it after the goal
         # pose is added to the observation vector (goal-conditioned RL).
         params={"object_cfg": SceneEntityCfg("target_object"),
-                "fixed_grasp_idx": 11, "random_selection": False},
+                "fixed_grasp_idx": 23, "random_selection": False},
     )
 
     # apply_high_friction_to_fingers = EventTerm(

@@ -29,7 +29,7 @@ geometry from scratch.
                        OFFLINE (once)                          ONLINE (RL training)
      ┌────────────────────────────────────────────┐   ┌──────────────────────────────────┐
      │  cube mesh ─► BODex grasp optimizer         │   │  each episode reset:             │
-     │              (UltraDexGrasp pipeline)       │   │    pick nearest goal grasp G*    │
+     │              (UltraDexGrasp pipeline)       │   │    assign fixed goal grasp G*    │
      │        │                                    │   │        │                         │
      │        ▼                                    │   │        ▼                         │
      │  100 candidate grasps                       │   │  reward the policy for moving    │
@@ -252,21 +252,46 @@ An event term that runs after the cube is placed on the tray:
    `goal_hand_q` (6) plus the pregrasp/squeeze finger stages and the chosen
    grasp index.
 
-**CURRENT MODE — single fixed grasp.** The selection above turned out to have a
-fundamental flaw for a policy that cannot observe its goal (see problem 17 in
-§6): with the goal varying per episode, the reward is a function of a hidden
-variable, and the best the policy can do is optimize the *average* goal —
-hovering near the cube at the mean offset, never committing to any one grasp.
-The config therefore now sets `fixed_grasp_idx: 15` in the `sample_grasp_goal`
-event: **every env, every episode trains against the same library grasp**
-(index 15 — the grasp most frequently chosen by nearest-palm selection, i.e.
-empirically the most reachable). This makes the goal a deterministic function
-of the observed cube position — fully learnable with no observation change.
-In this mode the scoring machinery above (including the distractor-corridor
-logic) is bypassed entirely; the original distractor penalties, which taught
-the pre-UltraDexGrasp policy to clear clutter, carry that concern alone.
-Set `fixed_grasp_idx: -1` to restore per-episode selection — but only do that
-after making the policy goal-conditioned (§8, item 5).
+**CURRENT MODE — single fixed grasp (index 11).** The selection above turned out
+to have a fundamental flaw for a policy that cannot observe its goal (see problem
+17 in §6): with the goal varying per episode, the reward is a function of a hidden
+variable, and the best the policy can do is optimize the *average* goal — hovering
+near the cube at the mean offset, never committing to any one grasp. A later
+experiment set `random_selection: True` (a uniformly random library grasp per
+episode); it made this **worse and broke the pick entirely** — the same hidden-goal
+problem, now with a fully random target the policy is never told about.
+
+The config therefore sets, in the `sample_grasp_goal` event:
+
+```python
+"fixed_grasp_idx": 11, "random_selection": False
+```
+
+so **every env, every episode trains against the same library grasp (index 11)**.
+Two things make index 11 the right choice:
+
+- It is the **only overhead grasp** in the library of 32. Its palm sits almost
+  directly above the cube — object-frame offset `x=+4 cm, y=+1 cm, z=+17 cm`, i.e.
+  horizontal offset ≈ 4 cm — whereas the other 31 grasps approach from ~12 cm off
+  to one side. The base policy already learned an *overhead* pick (the task
+  reward's `posture_rew` targets the palm 8 cm **above** the cube), so index 11
+  **agrees** with that motion, while the side grasps would **fight** it.
+- Because there is only one goal, `goal = f(observed cube pose)` is deterministic
+  and fully learnable **with no observation change**.
+
+In this mode the scoring machinery above (reach cost + distractor-corridor logic)
+is **bypassed entirely** — the sampler takes an early code path that simply glues
+grasp 11 onto the cube regardless of surroundings. The original distractor
+penalties, which taught the pre-UltraDexGrasp policy to clear clutter, carry that
+concern alone.
+
+The two override knobs, and when to use each:
+
+| `fixed_grasp_idx` | `random_selection` | Behavior |
+|---|---|---|
+| `11` (any `≥ 0`) | `False` | **current** — one fixed grasp for all envs/episodes; the only fully-learnable mode today |
+| `-1` | `False` | per-episode nearest-palm + clutter-aware selection (goal hidden → needs goal-conditioning, §8 item 5) |
+| `-1` | `True` | per-episode *uniformly random* grasp (**broke the pick** — do not use without goal-conditioning) |
 
 ### 4.1b Goals are LIVE, not frozen (`update_live_goals`)
 
@@ -286,7 +311,7 @@ runs online every step. That combination gives "live" goals at zero cost.
 
 Added to `RewardsCfg` alongside the six original terms (which are unchanged):
 
-**Palm reward** (weight 1.0) — pulls the palm toward the goal pose:
+**Palm reward** (weight 0.5) — pulls the palm toward the goal pose:
 
 $$r_{palm} = 1 - \tanh\left(\frac{\lVert p_{palm} - p^*\rVert}{0.15}\right)$$
 
@@ -296,13 +321,26 @@ near the goal (otherwise the policy would curl its fingers from across the room)
 
 $$r_{hand} = \underbrace{\left(1-\tanh\frac{\lVert p_{palm}-p^*\rVert}{0.20}\right)}_{\text{gate}} \cdot \left(1 - \tanh\frac{\lVert q - q^*\rVert}{0.5}\right)$$
 
-History: the first training run used weight 0.5 and gate 0.10 m; the policy
-plateaued hovering ~10 cm from the goal — exactly at the gate edge, where the
-palm gradient was weak and the finger reward had not switched on yet. The
-current values (weight 1.0, gate 0.20 m) keep the reward pulling through that
-zone. The weights remain small relative to the task reward (posture+reach+grasp
-≈ 4/step, success bonus 1000): the goals *guide*, they do not dominate. If the
-policy finds a better grasp than the library's, the task reward still wins.
+History of these numbers: the first run used palm weight 0.5 and gate 0.10 m; the
+policy plateaued hovering ~10 cm from the goal — exactly at the gate edge, where
+the palm gradient was weak and the finger reward had not switched on yet. Widening
+the gate to 0.20 m and raising the palm weight to 1.0 kept the reward pulling
+through that zone. Once the goal became a single **overhead** grasp (index 11,
+§4.1) that agrees with the task reward's posture target, the palm weight was
+lowered back to **0.5**: the two palm targets now point the same way, so the high
+weight is no longer needed to overpower posture, and the lower weight reduces the
+residual tug-of-war between the two terms.
+
+One thing **not** to do: don't push the palm weight much lower to "let the fingers
+grasp better". The hand reward is *gated on the palm being near the goal* — it is
+**downstream** of the palm reward, not a competitor for it. Starve the palm term
+and the gate rarely opens, so the finger-matching reward barely fires. 0.5 is a
+balance: low enough to avoid fighting posture, high enough to still drive the palm
+in and open the gate.
+
+The weights stay small relative to the task reward (posture+reach+grasp ≈ 4/step,
+success bonus 1000): the goals *guide*, they do not dominate. If the policy finds a
+better grasp than the library's, the task reward still wins.
 
 ### 4.3 What did NOT change
 
@@ -350,7 +388,7 @@ tensorboard --logdir /home/umar/IsaacLab/logs/rsl_rl/g1_pick
 | Curve | Expected behavior |
 |---|---|
 | `Episode_Reward/grasp_goal_palm` | rises from the very first iterations (reaching is easy) |
-| `Episode_Reward/grasp_goal_hand` | ~0 until palms reliably reach goals, then rises; if still flat at iter ~1000, the 10 cm gate may be too tight |
+| `Episode_Reward/grasp_goal_hand` | ~0 until palms reliably reach goals, then rises; if still flat at iter ~1000, the 20 cm gate may be too tight |
 | `Episode_Reward/task_reward` | **the key comparison**: overlay a pre-goal-shaping run and check whether this curve takes off earlier (earlier take-off = faster grasp acquisition = the shaping worked) |
 | `Train/mean_reward` | totals look *worse* early vs old runs (penalties + time spent chasing goals) — judge by `task_reward` |
 
@@ -400,7 +438,7 @@ summarized here too so this section can be read standalone.
 | 14 | **stale goals** — robot visibly parked where the cube *used to be* (user-spotted during play) | in some envs the palm hovers far from the red cube | goals were computed once at reset and frozen; any contact that slid the cube left the goal — and the shaping reward — pointing at empty space, *fighting* the task reward | goals made **live**: the chosen grasp is re-attached to the cube's current pose every step (`update_live_goals`, §4.1b) |
 | 15 | goal selection could steer into clutter | shaping pulled the hand on a collision course through distractors, then penalties punished it | nearest-palm selection ignored distractors | **clutter-aware selection**: approach-corridor blocking count added to the selection score (§4.1) |
 | 16 | training process silently died ~15 min in | no crash message; process gone; `oom_reaper: reaped process (python)` in kernel log | `--video --enable_cameras` on a 14 GB-RAM machine: offscreen rendering + frame buffers exhausted system memory | train **without video** on this machine (checkpoints every 50 iters — Ctrl+C, `play.py` the latest, `--resume`); or reduce to ≤768 envs with rare, short clips |
-| 17 | **the hidden-goal ceiling** — even after fixes 14/15, the second run plateaued: palm reward pinned at 0.55–0.58 (~7 cm) for hundreds of iterations, finger reward decaying, zero lifts; when resumed to 5000 iters the policy *abandoned* the goal rewards (palm 0.58→0.38) while task reward rose (1.14→1.9+) — it stopped chasing the goal entirely | the goal **varies per episode but is not in the observation**: identical states earn different rewards depending on a variable the policy cannot see, so it can only optimize the average over goals → hover at the centroid of candidate poses. A structural ceiling that no weight/gate tuning can remove | **single fixed grasp** (`fixed_grasp_idx: 15`): with one goal, `goal = f(observed cube pose)` — deterministic and learnable. Long-term fix: goal-conditioned policy (goal appended to the observation), after which per-episode selection over the full library becomes sound again |
+| 17 | **the hidden-goal ceiling** — even after fixes 14/15, the second run plateaued: palm reward pinned at 0.55–0.58 (~7 cm) for hundreds of iterations, finger reward decaying, zero lifts; when resumed to 5000 iters the policy *abandoned* the goal rewards (palm 0.58→0.38) while task reward rose (1.14→1.9+) — it stopped chasing the goal entirely | the goal **varies per episode but is not in the observation**: identical states earn different rewards depending on a variable the policy cannot see, so it can only optimize the average over goals → hover at the centroid of candidate poses. A structural ceiling that no weight/gate tuning can remove | **single fixed grasp** (`fixed_grasp_idx: 11, random_selection: False`): with one goal, `goal = f(observed cube pose)` — deterministic and learnable. Index 11 is the only *overhead* grasp, so it agrees with the task reward's posture target instead of fighting it. (A later `random_selection: True` experiment — a random goal per episode — made the ceiling worse and broke the pick outright.) Long-term fix: goal-conditioned policy (goal appended to the observation), after which per-episode selection over the full library becomes sound again |
 
 ### D. Training-campaign log (chronological)
 
@@ -410,7 +448,8 @@ summarized here too so this section can be read standalone.
 | `2026-07-08_04-16-44` | + video recording | OOM-killed at ~iter 100 (problem 16) |
 | `2026-07-08_04-52-57` (2000 it) | + live goals, clutter-aware selection, palm w=1.0 / gate 0.20 | 0 lifts; palm peaked 0.63 @ iter ~490 then decayed — hidden-goal ceiling (problem 17); task reward still rising at end |
 | `2026-07-08_08-59-27` (resumed → 5000 it) | same | 0 lifts; policy traded goal rewards away for task reward (task 1.9+, clearly above baseline's 1.14 — closer cube engagement, but no grasp) |
-| current | **single fixed grasp #15**, fresh, 3000 it | in progress — success criteria: palm > 0.7, finger reward rising, first nonzero `target_lifted` |
+| _(unlogged)_ | **random grasp per episode** (`random_selection: True`) | pick **regressed** — hidden-goal problem with a fully random, unobserved target (problem 17); reverted |
+| current | **single fixed overhead grasp #11**, palm weight 0.5, `random_selection: False` | config set; pending a training run — success criteria: palm > 0.7, finger reward rising, first nonzero `target_lifted` |
 
 If the single-grasp run also fails to lift: next levers, in order — goal-conditioned
 observation (96→109), then BC pretraining from scripted demonstrations
@@ -554,8 +593,10 @@ Three public symbols, consumed by the env config:
   to the GPU, and allocates per-env goal buffers. Its `__call__(env, env_ids)`
   runs on every episode reset for the resetting envs: it transforms all 32
   candidate palm poses into world coordinates with the cube's new pose
-  (batched quaternion math, no Python loops), picks the candidate nearest the
-  robot's current palm, and writes `goal_pos_w / goal_quat_w / goal_hand_q`.
+  (batched quaternion math, no Python loops), picks the goal grasp — in the
+  current config the fixed index 11; with `fixed_grasp_idx: -1` the candidate
+  nearest the palm (optionally clutter-aware) — and writes
+  `goal_pos_w / goal_quat_w / goal_hand_q`.
 - **`grasp_goal_palm_reward`** — reads the goal buffers back (the term instance
   is found through the event manager and cached on the env as
   `env._grasp_goal_term`) and returns `1 − tanh(‖p_palm − p*‖ / 0.15)`.
@@ -569,9 +610,10 @@ hand joint names in policy order; both are constants at the top of the file.
 
 - **`g1_pick_env_cfg.py`** — two blocks:
   in `EventCfg`, `sample_grasp_goal = EventTerm(func=mdp.sample_grasp_goal,
-  mode="reset", ...)` placed **after** `reset_target_object` (event terms run in
-  declaration order, and the sampler must see the cube's new pose); in
-  `RewardsCfg`, `grasp_goal_palm` (w=0.5) and `grasp_goal_hand` (w=0.3).
+  mode="reset", params={"fixed_grasp_idx": 11, "random_selection": False, ...})`
+  placed **after** `reset_target_object` (event terms run in declaration order,
+  and the sampler must see the cube's new pose); in `RewardsCfg`,
+  `grasp_goal_palm` (w=0.5) and `grasp_goal_hand` (w=0.3).
   Deleting these three blocks restores the exact previous behavior.
 - **`mdp/__init__.py`** — one line: `from .grasp_goal import *`.
 - **`ultradex_repo/util/bodex_util.py`** — an `elif hand_type == 'inspire':`
@@ -622,7 +664,7 @@ be regenerated with real mimic joints at the corrected ratios.
 3. **Single object**: the library covers only the 5 cm cube. The pipeline
    generalizes — DexGraspNet meshes can be fed through stages 1–3 for varied
    objects (the ClutterDexGrasp-style student stage will want this).
-4. **Only one grasp is trained right now** (`fixed_grasp_idx: 15`, §4.1) — a
+4. **Only one grasp is trained right now** (`fixed_grasp_idx: 11`, §4.1) — a
    deliberate simplification to defeat the hidden-goal ceiling (problem 17).
    The 32-grasp library and its selection machinery (reach cost + optional
    clutter-corridor scoring, per-grasp UCB bandit, critic-based
