@@ -531,7 +531,7 @@ class RewardsCfg:
         # (~17cm above the cube = hand length), which posture's 8cm target
         # undershoots. Combined 50/50 with the wrist-orientation match.
         params={"robot_cfg": SceneEntityCfg("robot"), "pos_std": 0.15,
-                "orient_std": 0.6, "orient_weight": 0.5, "pos_mode": "height"},
+                "orient_std": 0.6, "orient_weight": 0.5, "pos_mode": "full"},
     )
     grasp_goal_hand = RewTerm(
         func=mdp.grasp_goal_hand_config_reward,
