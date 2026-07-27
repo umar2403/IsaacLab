@@ -75,3 +75,6 @@ tests/
 
 # Vendored third-party grasp-synthesis repo (large binary assets + nested .git)
 **/grasp_sampler/ultradex_repo/
+
+# Generated grasp viewer output (regenerate: grasp_sampler/visualize_grasp_offline.py)
+**/grasp_sampler/grasp_viz/

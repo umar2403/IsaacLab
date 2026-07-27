@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import copy
+import os
 import torch
 from dataclasses import MISSING
 
@@ -24,6 +25,7 @@ from isaaclab.envs.mdp.actions.actions_cfg import JointPositionActionCfg
 
 from .robot_cfg import G1_INSPIRE_CFG
 from . import mdp
+from .grasp_selection import get_optimal_grasp_idx
 
 # --- PERFECTED HEIGHT CALCULATIONS (0.05m Cube) ---
 _OBJ_INIT_Z   = 0.845   # Cube center (Bottom sits perfectly flush at 0.820m tray surface)
@@ -43,6 +45,17 @@ _RIGHT_HAND_BODIES = [
 
 # 10 distractor entity names — used across reward/termination/obs/event configs
 _DISTRACTOR_NAMES = [f"distractor_{i}" for i in range(1, 11)]
+
+# Which UltraDexGrasp/BODex library grasp the policy is trained to mimic.
+# Chosen automatically by grasp_selection/ (sphere-contact-gated FSWO): of the 32
+# synthesized candidates it keeps only those whose collision spheres actually reach
+# the cube on OPPOSING faces (force-closable) with >=3 fingers engaged, then ranks the
+# survivors by wrap quality. Reads the cached grasp_selection/scores.json, recomputing
+# it (CPU, ~1 s) if the grasp library is newer. Re-run
+# `python grasp_selection/rank_grasps_sphere_fswo.py` after re-synthesizing grasps.
+# Set the env var G1_PICK_GRASP_IDX to override (e.g. to reproduce an old checkpoint).
+_OPTIMAL_GRASP_IDX = int(os.environ["G1_PICK_GRASP_IDX"]) if "G1_PICK_GRASP_IDX" in os.environ \
+    else get_optimal_grasp_idx()
 
 
 def compute_task_reward(
@@ -682,15 +695,14 @@ class EventCfg:
     sample_grasp_goal = EventTerm(
         func=mdp.sample_grasp_goal,
         mode="reset",
-        # FIXED single grasp (idx 11): the only top-down grasp in the library
-        # (palm ~directly above the cube, |xy|=4cm), so it aligns with the task
-        # reward's posture target instead of fighting it. The goal is now a
-        # deterministic function of the observed cube pose -> learnable.
+        # FIXED single grasp, chosen by the grasp-selection optimizer rather than by
+        # hand (see _OPTIMAL_GRASP_IDX above). Keeping it a single fixed grasp makes
+        # the goal a deterministic function of the observed cube pose -> learnable.
         # random_selection=True re-introduces a hidden, unobserved, per-episode
         # random target and breaks the pick; only re-enable it after the goal
         # pose is added to the observation vector (goal-conditioned RL).
         params={"object_cfg": SceneEntityCfg("target_object"),
-                "fixed_grasp_idx": 23, "random_selection": False},
+                "fixed_grasp_idx": _OPTIMAL_GRASP_IDX, "random_selection": False},
     )
 
     # apply_high_friction_to_fingers = EventTerm(
