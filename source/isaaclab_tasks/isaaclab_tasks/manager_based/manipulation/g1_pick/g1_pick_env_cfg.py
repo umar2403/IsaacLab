@@ -19,6 +19,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sim import CuboidCfg, RigidBodyMaterialCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils import configclass
+from isaaclab.utils.math import quat_error_magnitude
 
 from isaaclab.envs.mdp.actions.joint_actions import JointPositionAction
 from isaaclab.envs.mdp.actions.actions_cfg import JointPositionActionCfg
@@ -62,9 +63,23 @@ def compute_task_reward(
     env: ManagerBasedRLEnv,
     robot_cfg: SceneEntityCfg,
     object_cfg: SceneEntityCfg,
+    use_posture: bool = True,
+    pose_gated_success: bool = False,
+    success_floor: float = 0.2,
+    pose_pos_std: float = 0.10,
+    pose_ang_std: float = 0.8,
 ) -> torch.Tensor:
     """Dense pick+lift shaping: posture, reach, grasp, lift_cont, success_bonus.
-    Overridden to -0.5 when target is dropped."""
+    Overridden to -0.5 when target is dropped.
+
+    use_posture: include the posture term, which pulls the palm to a FIXED point 8 cm
+        straight above the cube. That point is hardcoded overhead, so it only agrees
+        with a near-top-down goal grasp; with a side grasp the two fight and the palm
+        settles between them. Set False when the goal grasp is not top-down, and let
+        grasp_goal_palm own palm placement instead (raise its weight to compensate:
+        posture contributes up to 1.0 here). Removing it also removes the only term
+        that biases the approach to come from ABOVE — reach/grasp are direction-
+        agnostic, they just want fingertips near the cube from any side."""
     robot: Articulation = env.scene[robot_cfg.name]
     obj: RigidObject = env.scene[object_cfg.name]
 
@@ -77,10 +92,13 @@ def compute_task_reward(
     thumb_dist  = torch.clamp(raw_thumb_dist  - 0.025, min=0.0)
     finger_dist = torch.clamp(raw_finger_dist - 0.025, min=0.0)
 
-    palm_target = cube_pos.clone()
-    palm_target[:, 2] += 0.08
-    palm_dist = torch.linalg.norm(palm_pos - palm_target, dim=-1)
-    posture_rew = 1.0 - torch.tanh(torch.clamp(palm_dist - 0.03, min=0.0) / 0.3)
+    if use_posture:
+        palm_target = cube_pos.clone()
+        palm_target[:, 2] += 0.08
+        palm_dist = torch.linalg.norm(palm_pos - palm_target, dim=-1)
+        posture_rew = 1.0 - torch.tanh(torch.clamp(palm_dist - 0.03, min=0.0) / 0.3)
+    else:
+        posture_rew = torch.zeros_like(cube_pos[:, 0])
 
     fingertip_midpoint = tips_pos.mean(dim=1)
     midpoint_dist = torch.linalg.norm(fingertip_midpoint - cube_pos, dim=-1)
@@ -96,7 +114,31 @@ def compute_task_reward(
     lift_height = (cube_pos[:, 2] - _OBJ_INIT_Z).clamp(min=0.0, max=0.30)
     lift_cont_rew = lift_height * 2.0 * is_grasped
     is_lifted = cube_pos[:, 2] > _SUCCESS_Z
-    success_bonus = is_lifted.float() * is_grasped * 1000.0
+
+    # Pose-gated success: scale the big terminal bonus by how well the hand matches the
+    # UltraDexGrasp goal pose AT THE MOMENT OF THE LIFT. Additive shaping cannot compete
+    # with a 1000-point bonus -- the policy just optimises its own grasp and ignores the
+    # goal (observed: grasp_goal_palm dead flat at 0.029 across 3000 iterations). Making
+    # the bonus itself conditional turns "match the pose" from a competing objective into
+    # a precondition. success_floor keeps a wrong-pose pick worth something (default 0.2
+    # -> 200), so the pick signal never vanishes if the goal pose turns out to be hard to
+    # reach; a matched pose pays the full 1000.
+    # The goal follows the cube, so this asks: are you holding it the UltraDex way?
+    if pose_gated_success:
+        from .mdp.grasp_goal import _get_goal_term
+
+        term = _get_goal_term(env)
+        term.update_live_goals(env)
+        hand_pos = robot.data.body_pos_w[:, term._palm_body_idx]
+        hand_quat = robot.data.body_quat_w[:, term._palm_body_idx]
+        pos_err = torch.norm(hand_pos - term.goal_pos_w, dim=1)
+        ang_err = quat_error_magnitude(hand_quat, term.goal_quat_w)
+        pose_match = (1.0 - torch.tanh(pos_err / pose_pos_std)) * (1.0 - torch.tanh(ang_err / pose_ang_std))
+        success_scale = success_floor + (1.0 - success_floor) * pose_match
+    else:
+        success_scale = torch.ones_like(cube_pos[:, 0])
+
+    success_bonus = is_lifted.float() * is_grasped * success_scale * 1000.0
 
     reward = posture_rew + reach_rew + grasp_rew * 2.0 + lift_cont_rew + success_bonus
 
@@ -519,12 +561,24 @@ class ObservationsCfg:
 @configclass
 class RewardsCfg:
     # Dense pick/lift shaping: posture + reach + grasp + lift + success_bonus (with target_drop override)
+    # NO-TOP-DOWN EXPERIMENT (branch umar/g1-pick-no-topdown):
+    # use_posture=False removes the hardcoded "hover 8 cm above the cube" term. The goal
+    # grasp on this branch is a side approach (~81 deg from vertical), which that term
+    # actively fights. Palm placement is now owned entirely by grasp_goal_palm below.
+    # Revert to use_posture=True (or drop the key) to restore the top-down behaviour.
     task_reward = RewTerm(
         func=compute_task_reward,
         weight=1.0,
         params={
             "robot_cfg": SceneEntityCfg("robot", body_names=_RIGHT_HAND_BODIES),
             "object_cfg": SceneEntityCfg("target_object"),
+            "use_posture": False,
+            # the 1000-point bonus is now scaled by UltraDexGrasp pose match at lift time
+            # (0.2 floor -> a wrong-pose pick still pays 200, a matched pose pays 1000)
+            "pose_gated_success": True,
+            "success_floor": 0.2,
+            "pose_pos_std": 0.10,
+            "pose_ang_std": 0.8,
         },
     )
 
@@ -537,7 +591,11 @@ class RewardsCfg:
     # (reduces conflict with posture_rew) but high enough to still open the gate.
     grasp_goal_palm = RewTerm(
         func=mdp.grasp_goal_palm_reward,
-        weight=1.0,
+        # weight 1.0 -> 2.0 on this branch: with posture_rew switched off, this is the
+        # ONLY term that says where the palm should be, and its position half maxes at
+        # 0.5 (orient_weight splits it). Doubling keeps the total palm-guidance signal
+        # at roughly the ~2.0 the policy previously got from posture + goal together.
+        weight=2.0,
         # pos_mode="height": only the VERTICAL offset to the goal is rewarded.
         # task_reward's posture+reach already centre the palm horizontally, so the
         # grasp library's unique positional info is the correct grasp HEIGHT

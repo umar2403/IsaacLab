@@ -1,13 +1,23 @@
 {
   "version": 2,
   "method": "sphere-contact-gated FSWO (OPTIMIZER_IMPLEMENTATION_SPEC.md Section 6)",
-  "generated": "2026-07-27T01:06:19",
-  "best_idx": 23,
+  "generated": "2026-07-27T22:03:11",
+  "best_idx": 12,
   "ranked_indices": [
-    23,
-    18
+    12,
+    0,
+    27,
+    17,
+    29,
+    8,
+    2,
+    5,
+    18,
+    7,
+    10,
+    6
   ],
-  "n_valid": 2,
+  "n_valid": 12,
   "n_grasps": 32,
   "params": {
     "contact_dist": 0.005,
@@ -23,37 +33,38 @@
   "ranking_key": "(n_fingers, n_spheres, fswo) descending",
   "scores": [
     {
-      "n_fingers": 4,
-      "n_spheres": 9,
+      "n_fingers": 5,
+      "n_spheres": 6,
       "n_palm_spheres": 0,
       "fingers": [
         "thumb",
         "index",
         "middle",
-        "ring"
+        "ring",
+        "pinky"
       ],
       "spheres_per_finger": {
-        "thumb": 4,
-        "index": 2,
-        "middle": 2,
+        "thumb": 1,
+        "index": 1,
+        "middle": 1,
         "ring": 1,
-        "pinky": 0
+        "pinky": 2
       },
       "faces": {
-        "+z": 2,
-        "+x": 4,
-        "-y": 3
+        "+y": 1,
+        "+z": 3,
+        "-y": 2
       },
-      "min_gap": -0.01348,
-      "tip_min_gap": -0.00648,
-      "fswo": null,
-      "valid": false,
-      "reject": "fingertip 6.5 mm inside the cube (limit 3.0 mm)",
+      "min_gap": -0.00193,
+      "tip_min_gap": 0.00507,
+      "fswo": -0.0007879931276046735,
+      "valid": true,
+      "reject": null,
       "idx": 0
     },
     {
       "n_fingers": 4,
-      "n_spheres": 9,
+      "n_spheres": 7,
       "n_palm_spheres": 0,
       "fingers": [
         "thumb",
@@ -63,26 +74,25 @@
       ],
       "spheres_per_finger": {
         "thumb": 4,
-        "index": 2,
-        "middle": 2,
+        "index": 1,
+        "middle": 1,
         "ring": 1,
         "pinky": 0
       },
       "faces": {
-        "+z": 2,
-        "+x": 4,
-        "-y": 3
+        "+y": 4,
+        "+z": 3
       },
-      "min_gap": -0.0139,
-      "tip_min_gap": -0.0069,
-      "fswo": null,
+      "min_gap": -0.00201,
+      "tip_min_gap": 0.00499,
+      "fswo": -1.0000205815352485,
       "valid": false,
-      "reject": "fingertip 6.9 mm inside the cube (limit 3.0 mm)",
+      "reject": "not force-closable (FSWO -1.0000 < -0.05; no opposing faces touched, faces +y/+z)",
       "idx": 1
     },
     {
       "n_fingers": 4,
-      "n_spheres": 9,
+      "n_spheres": 7,
       "n_palm_spheres": 0,
       "fingers": [
         "thumb",
@@ -92,26 +102,26 @@
       ],
       "spheres_per_finger": {
         "thumb": 4,
-        "index": 2,
-        "middle": 2,
+        "index": 1,
+        "middle": 1,
         "ring": 1,
         "pinky": 0
       },
       "faces": {
+        "+y": 4,
         "+z": 2,
-        "+x": 3,
-        "-y": 4
+        "-y": 1
       },
-      "min_gap": -0.01393,
-      "tip_min_gap": -0.00693,
-      "fswo": null,
-      "valid": false,
-      "reject": "fingertip 6.9 mm inside the cube (limit 3.0 mm)",
+      "min_gap": -0.00265,
+      "tip_min_gap": 0.00435,
+      "fswo": -0.0007733767272800302,
+      "valid": true,
+      "reject": null,
       "idx": 2
     },
     {
       "n_fingers": 4,
-      "n_spheres": 9,
+      "n_spheres": 4,
       "n_palm_spheres": 0,
       "fingers": [
         "thumb",
@@ -120,22 +130,21 @@
         "ring"
       ],
       "spheres_per_finger": {
-        "thumb": 4,
-        "index": 2,
-        "middle": 2,
+        "thumb": 1,
+        "index": 1,
+        "middle": 1,
         "ring": 1,
         "pinky": 0
       },
       "faces": {
-        "+z": 2,
-        "+x": 3,
-        "-y": 4
+        "+y": 1,
+        "+z": 3
       },
-      "min_gap": -0.01381,
-      "tip_min_gap": -0.00681,
-      "fswo": null,
+      "min_gap": -0.00296,
+      "tip_min_gap": 0.00404,
+      "fswo": -1.0000824339240901,
       "valid": false,
-      "reject": "fingertip 6.8 mm inside the cube (limit 3.0 mm)",
+      "reject": "not force-closable (FSWO -1.0001 < -0.05; no opposing faces touched, faces +y/+z)",
       "idx": 3
     },
     {
@@ -143,519 +152,57 @@
       "n_spheres": 5,
       "n_palm_spheres": 0,
       "fingers": [
-        "thumb",
         "index",
         "middle",
-        "ring"
+        "ring",
+        "pinky"
       ],
       "spheres_per_finger": {
-        "thumb": 2,
+        "thumb": 0,
         "index": 1,
         "middle": 1,
         "ring": 1,
-        "pinky": 0
+        "pinky": 2
       },
       "faces": {
-        "+z": 2,
-        "+x": 1,
+        "+z": 3,
         "-y": 2
       },
-      "min_gap": -0.00593,
-      "tip_min_gap": 0.00107,
-      "fswo": -1.0001045398949373,
+      "min_gap": -0.00191,
+      "tip_min_gap": 0.00509,
+      "fswo": -1.0001470324812576,
       "valid": false,
-      "reject": "not force-closable (FSWO -1.0001 < -0.05; no opposing faces touched, faces +x/+z/-y)",
+      "reject": "not force-closable (FSWO -1.0001 < -0.05; no opposing faces touched, faces +z/-y)",
       "idx": 4
     },
     {
-      "n_fingers": 3,
+      "n_fingers": 4,
       "n_spheres": 7,
       "n_palm_spheres": 0,
       "fingers": [
         "thumb",
         "index",
-        "middle"
-      ],
-      "spheres_per_finger": {
-        "thumb": 4,
-        "index": 1,
-        "middle": 2,
-        "ring": 0,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 1,
-        "+y": 3,
-        "+x": 3
-      },
-      "min_gap": -0.0068,
-      "tip_min_gap": 0.0002,
-      "fswo": -1.0000470510744435,
-      "valid": false,
-      "reject": "not force-closable (FSWO -1.0000 < -0.05; no opposing faces touched, faces +x/+y/+z)",
-      "idx": 5
-    },
-    {
-      "n_fingers": 4,
-      "n_spheres": 9,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
         "middle",
         "ring"
       ],
       "spheres_per_finger": {
         "thumb": 4,
-        "index": 2,
-        "middle": 2,
-        "ring": 1,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 2,
-        "+x": 4,
-        "-y": 3
-      },
-      "min_gap": -0.01235,
-      "tip_min_gap": -0.00386,
-      "fswo": null,
-      "valid": false,
-      "reject": "fingertip 3.9 mm inside the cube (limit 3.0 mm)",
-      "idx": 6
-    },
-    {
-      "n_fingers": 3,
-      "n_spheres": 8,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle"
-      ],
-      "spheres_per_finger": {
-        "thumb": 4,
-        "index": 2,
-        "middle": 2,
-        "ring": 0,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 4,
-        "+y": 1,
-        "+x": 1,
-        "-y": 2
-      },
-      "min_gap": -0.01446,
-      "tip_min_gap": -0.00474,
-      "fswo": null,
-      "valid": false,
-      "reject": "fingertip 4.7 mm inside the cube (limit 3.0 mm)",
-      "idx": 7
-    },
-    {
-      "n_fingers": 4,
-      "n_spheres": 5,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle",
-        "ring"
-      ],
-      "spheres_per_finger": {
-        "thumb": 2,
         "index": 1,
         "middle": 1,
-        "ring": 1,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 2,
-        "+x": 1,
-        "-y": 2
-      },
-      "min_gap": -0.0044,
-      "tip_min_gap": 0.0026,
-      "fswo": -1.0001314130661227,
-      "valid": false,
-      "reject": "not force-closable (FSWO -1.0001 < -0.05; no opposing faces touched, faces +x/+z/-y)",
-      "idx": 8
-    },
-    {
-      "n_fingers": 4,
-      "n_spheres": 8,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle",
-        "ring"
-      ],
-      "spheres_per_finger": {
-        "thumb": 4,
-        "index": 2,
-        "middle": 1,
-        "ring": 1,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 4,
-        "+x": 2,
-        "-y": 2
-      },
-      "min_gap": -0.01446,
-      "tip_min_gap": -0.00476,
-      "fswo": null,
-      "valid": false,
-      "reject": "fingertip 4.8 mm inside the cube (limit 3.0 mm)",
-      "idx": 9
-    },
-    {
-      "n_fingers": 3,
-      "n_spheres": 8,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle"
-      ],
-      "spheres_per_finger": {
-        "thumb": 4,
-        "index": 2,
-        "middle": 2,
-        "ring": 0,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 2,
-        "+y": 2,
-        "+x": 4
-      },
-      "min_gap": -0.00689,
-      "tip_min_gap": 0.00011,
-      "fswo": -1.0001016202475934,
-      "valid": false,
-      "reject": "not force-closable (FSWO -1.0001 < -0.05; no opposing faces touched, faces +x/+y/+z)",
-      "idx": 10
-    },
-    {
-      "n_fingers": 4,
-      "n_spheres": 9,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle",
-        "ring"
-      ],
-      "spheres_per_finger": {
-        "thumb": 4,
-        "index": 2,
-        "middle": 2,
-        "ring": 1,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 2,
-        "+x": 4,
-        "-y": 3
-      },
-      "min_gap": -0.0126,
-      "tip_min_gap": -0.00387,
-      "fswo": null,
-      "valid": false,
-      "reject": "fingertip 3.9 mm inside the cube (limit 3.0 mm)",
-      "idx": 11
-    },
-    {
-      "n_fingers": 4,
-      "n_spheres": 5,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle",
-        "ring"
-      ],
-      "spheres_per_finger": {
-        "thumb": 2,
-        "index": 1,
-        "middle": 1,
-        "ring": 1,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 2,
-        "+x": 1,
-        "-y": 2
-      },
-      "min_gap": -0.0043,
-      "tip_min_gap": 0.0027,
-      "fswo": -1.0001057685139956,
-      "valid": false,
-      "reject": "not force-closable (FSWO -1.0001 < -0.05; no opposing faces touched, faces +x/+z/-y)",
-      "idx": 12
-    },
-    {
-      "n_fingers": 4,
-      "n_spheres": 5,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle",
-        "ring"
-      ],
-      "spheres_per_finger": {
-        "thumb": 2,
-        "index": 1,
-        "middle": 1,
-        "ring": 1,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 2,
-        "+x": 1,
-        "-y": 2
-      },
-      "min_gap": -0.00398,
-      "tip_min_gap": 0.00302,
-      "fswo": -1.0001394899160556,
-      "valid": false,
-      "reject": "not force-closable (FSWO -1.0001 < -0.05; no opposing faces touched, faces +x/+z/-y)",
-      "idx": 13
-    },
-    {
-      "n_fingers": 4,
-      "n_spheres": 5,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle",
-        "ring"
-      ],
-      "spheres_per_finger": {
-        "thumb": 2,
-        "index": 1,
-        "middle": 1,
-        "ring": 1,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 2,
-        "+x": 1,
-        "-y": 2
-      },
-      "min_gap": -0.00416,
-      "tip_min_gap": 0.00284,
-      "fswo": -1.0000783244623652,
-      "valid": false,
-      "reject": "not force-closable (FSWO -1.0001 < -0.05; no opposing faces touched, faces +x/+z/-y)",
-      "idx": 14
-    },
-    {
-      "n_fingers": 4,
-      "n_spheres": 5,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle",
-        "ring"
-      ],
-      "spheres_per_finger": {
-        "thumb": 2,
-        "index": 1,
-        "middle": 1,
-        "ring": 1,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 2,
-        "+x": 1,
-        "-y": 2
-      },
-      "min_gap": -0.00454,
-      "tip_min_gap": 0.00246,
-      "fswo": -1.000127715620886,
-      "valid": false,
-      "reject": "not force-closable (FSWO -1.0001 < -0.05; no opposing faces touched, faces +x/+z/-y)",
-      "idx": 15
-    },
-    {
-      "n_fingers": 4,
-      "n_spheres": 5,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle",
-        "ring"
-      ],
-      "spheres_per_finger": {
-        "thumb": 2,
-        "index": 1,
-        "middle": 1,
-        "ring": 1,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 2,
-        "+x": 1,
-        "-y": 2
-      },
-      "min_gap": -0.00408,
-      "tip_min_gap": 0.00292,
-      "fswo": -1.000078191065211,
-      "valid": false,
-      "reject": "not force-closable (FSWO -1.0001 < -0.05; no opposing faces touched, faces +x/+z/-y)",
-      "idx": 16
-    },
-    {
-      "n_fingers": 4,
-      "n_spheres": 9,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle",
-        "ring"
-      ],
-      "spheres_per_finger": {
-        "thumb": 4,
-        "index": 2,
-        "middle": 2,
-        "ring": 1,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 3,
-        "+y": 2,
-        "+x": 1,
-        "-y": 3
-      },
-      "min_gap": -0.01257,
-      "tip_min_gap": -0.00502,
-      "fswo": null,
-      "valid": false,
-      "reject": "fingertip 5.0 mm inside the cube (limit 3.0 mm)",
-      "idx": 17
-    },
-    {
-      "n_fingers": 4,
-      "n_spheres": 8,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle",
-        "ring"
-      ],
-      "spheres_per_finger": {
-        "thumb": 4,
-        "index": 1,
-        "middle": 2,
         "ring": 1,
         "pinky": 0
       },
       "faces": {
         "+y": 4,
-        "+x": 2,
-        "-y": 2
+        "+z": 2,
+        "-y": 1
       },
-      "min_gap": -0.00646,
-      "tip_min_gap": 0.00054,
-      "fswo": -2.0911835040940052e-33,
+      "min_gap": -0.00212,
+      "tip_min_gap": 0.00488,
+      "fswo": -0.001023589610959748,
       "valid": true,
       "reject": null,
-      "idx": 18
-    },
-    {
-      "n_fingers": 3,
-      "n_spheres": 7,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle"
-      ],
-      "spheres_per_finger": {
-        "thumb": 4,
-        "index": 1,
-        "middle": 2,
-        "ring": 0,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 1,
-        "+y": 3,
-        "+x": 3
-      },
-      "min_gap": -0.0056,
-      "tip_min_gap": 0.0014,
-      "fswo": -1.0000704876342716,
-      "valid": false,
-      "reject": "not force-closable (FSWO -1.0001 < -0.05; no opposing faces touched, faces +x/+y/+z)",
-      "idx": 19
-    },
-    {
-      "n_fingers": 4,
-      "n_spheres": 9,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle",
-        "ring"
-      ],
-      "spheres_per_finger": {
-        "thumb": 4,
-        "index": 2,
-        "middle": 2,
-        "ring": 1,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 4,
-        "+x": 2,
-        "-y": 3
-      },
-      "min_gap": -0.01656,
-      "tip_min_gap": -0.00856,
-      "fswo": null,
-      "valid": false,
-      "reject": "fingertip 8.6 mm inside the cube (limit 3.0 mm)",
-      "idx": 20
-    },
-    {
-      "n_fingers": 3,
-      "n_spheres": 7,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle"
-      ],
-      "spheres_per_finger": {
-        "thumb": 4,
-        "index": 1,
-        "middle": 2,
-        "ring": 0,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 2,
-        "+y": 2,
-        "+x": 3
-      },
-      "min_gap": -0.00493,
-      "tip_min_gap": 0.00238,
-      "fswo": -1.000030727661108,
-      "valid": false,
-      "reject": "not force-closable (FSWO -1.0000 < -0.05; no opposing faces touched, faces +x/+y/+z)",
-      "idx": 21
+      "idx": 5
     },
     {
       "n_fingers": 4,
@@ -675,20 +222,49 @@
         "pinky": 0
       },
       "faces": {
+        "+y": 2,
         "+z": 2,
-        "+x": 1,
-        "-y": 2
+        "-y": 1
       },
-      "min_gap": -0.00358,
-      "tip_min_gap": 0.00342,
-      "fswo": -1.0000639076688498,
-      "valid": false,
-      "reject": "not force-closable (FSWO -1.0001 < -0.05; no opposing faces touched, faces +x/+z/-y)",
-      "idx": 22
+      "min_gap": -0.00235,
+      "tip_min_gap": 0.00465,
+      "fswo": -0.0010905868333428957,
+      "valid": true,
+      "reject": null,
+      "idx": 6
     },
     {
       "n_fingers": 4,
-      "n_spheres": 9,
+      "n_spheres": 6,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "thumb",
+        "index",
+        "middle",
+        "ring"
+      ],
+      "spheres_per_finger": {
+        "thumb": 2,
+        "index": 1,
+        "middle": 1,
+        "ring": 2,
+        "pinky": 0
+      },
+      "faces": {
+        "+y": 2,
+        "+z": 1,
+        "-y": 3
+      },
+      "min_gap": -0.00247,
+      "tip_min_gap": 0.00453,
+      "fswo": -4.017437963925601e-05,
+      "valid": true,
+      "reject": null,
+      "idx": 7
+    },
+    {
+      "n_fingers": 4,
+      "n_spheres": 7,
       "n_palm_spheres": 0,
       "fingers": [
         "thumb",
@@ -698,6 +274,92 @@
       ],
       "spheres_per_finger": {
         "thumb": 4,
+        "index": 1,
+        "middle": 1,
+        "ring": 1,
+        "pinky": 0
+      },
+      "faces": {
+        "+y": 4,
+        "+z": 2,
+        "-y": 1
+      },
+      "min_gap": -0.00218,
+      "tip_min_gap": 0.00482,
+      "fswo": -0.0007223707873615975,
+      "valid": true,
+      "reject": null,
+      "idx": 8
+    },
+    {
+      "n_fingers": 4,
+      "n_spheres": 4,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "thumb",
+        "index",
+        "middle",
+        "ring"
+      ],
+      "spheres_per_finger": {
+        "thumb": 1,
+        "index": 1,
+        "middle": 1,
+        "ring": 1,
+        "pinky": 0
+      },
+      "faces": {
+        "+y": 1,
+        "+z": 3
+      },
+      "min_gap": -0.00291,
+      "tip_min_gap": 0.00409,
+      "fswo": -1.0000701057461747,
+      "valid": false,
+      "reject": "not force-closable (FSWO -1.0001 < -0.05; no opposing faces touched, faces +y/+z)",
+      "idx": 9
+    },
+    {
+      "n_fingers": 4,
+      "n_spheres": 5,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "thumb",
+        "index",
+        "middle",
+        "ring"
+      ],
+      "spheres_per_finger": {
+        "thumb": 2,
+        "index": 1,
+        "middle": 1,
+        "ring": 1,
+        "pinky": 0
+      },
+      "faces": {
+        "+y": 2,
+        "+z": 2,
+        "-y": 1
+      },
+      "min_gap": -0.00217,
+      "tip_min_gap": 0.00483,
+      "fswo": -0.000992686791969813,
+      "valid": true,
+      "reject": null,
+      "idx": 10
+    },
+    {
+      "n_fingers": 4,
+      "n_spheres": 6,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "thumb",
+        "index",
+        "middle",
+        "ring"
+      ],
+      "spheres_per_finger": {
+        "thumb": 1,
         "index": 1,
         "middle": 2,
         "ring": 2,
@@ -705,20 +367,49 @@
       },
       "faces": {
         "+z": 2,
+        "-x": 3,
+        "+y": 1
+      },
+      "min_gap": -0.00134,
+      "tip_min_gap": 0.00566,
+      "fswo": -1.0001615793018892,
+      "valid": false,
+      "reject": "not force-closable (FSWO -1.0002 < -0.05; no opposing faces touched, faces +y/+z/-x)",
+      "idx": 11
+    },
+    {
+      "n_fingers": 5,
+      "n_spheres": 8,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "thumb",
+        "index",
+        "middle",
+        "ring",
+        "pinky"
+      ],
+      "spheres_per_finger": {
+        "thumb": 2,
+        "index": 2,
+        "middle": 2,
+        "ring": 1,
+        "pinky": 1
+      },
+      "faces": {
         "+y": 2,
-        "+x": 3,
+        "+x": 4,
         "-y": 2
       },
-      "min_gap": -0.0092,
-      "tip_min_gap": -0.0022,
-      "fswo": -0.00014039031008248356,
+      "min_gap": -0.00081,
+      "tip_min_gap": 0.00619,
+      "fswo": -6.633868145512e-05,
       "valid": true,
       "reject": null,
-      "idx": 23
+      "idx": 12
     },
     {
       "n_fingers": 4,
-      "n_spheres": 9,
+      "n_spheres": 6,
       "n_palm_spheres": 0,
       "fingers": [
         "thumb",
@@ -727,28 +418,81 @@
         "ring"
       ],
       "spheres_per_finger": {
-        "thumb": 4,
-        "index": 2,
+        "thumb": 1,
+        "index": 1,
         "middle": 2,
-        "ring": 1,
+        "ring": 2,
         "pinky": 0
       },
       "faces": {
         "+z": 2,
-        "+y": 2,
-        "+x": 4,
-        "-y": 1
+        "-x": 4
       },
-      "min_gap": -0.0106,
-      "tip_min_gap": -0.0036,
-      "fswo": null,
+      "min_gap": -0.00011,
+      "tip_min_gap": 0.00689,
+      "fswo": -1.0002691981108702,
       "valid": false,
-      "reject": "fingertip 3.6 mm inside the cube (limit 3.0 mm)",
-      "idx": 24
+      "reject": "not force-closable (FSWO -1.0003 < -0.05; no opposing faces touched, faces +z/-x)",
+      "idx": 13
+    },
+    {
+      "n_fingers": 3,
+      "n_spheres": 4,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "index",
+        "middle",
+        "ring"
+      ],
+      "spheres_per_finger": {
+        "thumb": 0,
+        "index": 1,
+        "middle": 1,
+        "ring": 2,
+        "pinky": 0
+      },
+      "faces": {
+        "+z": 2,
+        "-y": 2
+      },
+      "min_gap": -0.002,
+      "tip_min_gap": 0.005,
+      "fswo": -1.0002088946195886,
+      "valid": false,
+      "reject": "not force-closable (FSWO -1.0002 < -0.05; no opposing faces touched, faces +z/-y)",
+      "idx": 14
     },
     {
       "n_fingers": 4,
-      "n_spheres": 8,
+      "n_spheres": 6,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "thumb",
+        "middle",
+        "ring",
+        "pinky"
+      ],
+      "spheres_per_finger": {
+        "thumb": 1,
+        "index": 0,
+        "middle": 2,
+        "ring": 2,
+        "pinky": 1
+      },
+      "faces": {
+        "+z": 1,
+        "-x": 5
+      },
+      "min_gap": -0.00196,
+      "tip_min_gap": 0.00562,
+      "fswo": -1.000165317333889,
+      "valid": false,
+      "reject": "not force-closable (FSWO -1.0002 < -0.05; no opposing faces touched, faces +z/-x)",
+      "idx": 15
+    },
+    {
+      "n_fingers": 4,
+      "n_spheres": 7,
       "n_palm_spheres": 0,
       "fingers": [
         "thumb",
@@ -759,107 +503,361 @@
       "spheres_per_finger": {
         "thumb": 4,
         "index": 1,
-        "middle": 2,
-        "ring": 1,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 2,
-        "+x": 3,
-        "-y": 3
-      },
-      "min_gap": -0.01296,
-      "tip_min_gap": -0.00488,
-      "fswo": null,
-      "valid": false,
-      "reject": "fingertip 4.9 mm inside the cube (limit 3.0 mm)",
-      "idx": 25
-    },
-    {
-      "n_fingers": 4,
-      "n_spheres": 8,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle",
-        "ring"
-      ],
-      "spheres_per_finger": {
-        "thumb": 4,
-        "index": 2,
         "middle": 1,
-        "ring": 1,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 3,
-        "+y": 1,
-        "+x": 2,
-        "-y": 2
-      },
-      "min_gap": -0.01565,
-      "tip_min_gap": -0.00779,
-      "fswo": null,
-      "valid": false,
-      "reject": "fingertip 7.8 mm inside the cube (limit 3.0 mm)",
-      "idx": 26
-    },
-    {
-      "n_fingers": 3,
-      "n_spheres": 8,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle"
-      ],
-      "spheres_per_finger": {
-        "thumb": 4,
-        "index": 2,
-        "middle": 2,
-        "ring": 0,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 1,
-        "+y": 3,
-        "+x": 4
-      },
-      "min_gap": -0.00598,
-      "tip_min_gap": 0.00102,
-      "fswo": -1.000030394374322,
-      "valid": false,
-      "reject": "not force-closable (FSWO -1.0000 < -0.05; no opposing faces touched, faces +x/+y/+z)",
-      "idx": 27
-    },
-    {
-      "n_fingers": 4,
-      "n_spheres": 9,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle",
-        "ring"
-      ],
-      "spheres_per_finger": {
-        "thumb": 4,
-        "index": 2,
-        "middle": 2,
         "ring": 1,
         "pinky": 0
       },
       "faces": {
         "+z": 2,
         "+x": 4,
-        "-y": 3
+        "-y": 1
       },
-      "min_gap": -0.0154,
-      "tip_min_gap": -0.0084,
-      "fswo": null,
+      "min_gap": -0.00214,
+      "tip_min_gap": 0.00486,
+      "fswo": -1.0005530760714925,
       "valid": false,
-      "reject": "fingertip 8.4 mm inside the cube (limit 3.0 mm)",
+      "reject": "not force-closable (FSWO -1.0006 < -0.05; no opposing faces touched, faces +x/+z/-y)",
+      "idx": 16
+    },
+    {
+      "n_fingers": 4,
+      "n_spheres": 8,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "thumb",
+        "index",
+        "middle",
+        "ring"
+      ],
+      "spheres_per_finger": {
+        "thumb": 3,
+        "index": 2,
+        "middle": 2,
+        "ring": 1,
+        "pinky": 0
+      },
+      "faces": {
+        "-x": 3,
+        "+x": 4,
+        "-y": 1
+      },
+      "min_gap": -0.00318,
+      "tip_min_gap": 0.00382,
+      "fswo": -0.0001438275315179309,
+      "valid": true,
+      "reject": null,
+      "idx": 17
+    },
+    {
+      "n_fingers": 4,
+      "n_spheres": 7,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "thumb",
+        "index",
+        "middle",
+        "ring"
+      ],
+      "spheres_per_finger": {
+        "thumb": 2,
+        "index": 2,
+        "middle": 2,
+        "ring": 1,
+        "pinky": 0
+      },
+      "faces": {
+        "+z": 1,
+        "+y": 1,
+        "+x": 4,
+        "-y": 1
+      },
+      "min_gap": -0.00152,
+      "tip_min_gap": 0.00548,
+      "fswo": -0.0019170504707902057,
+      "valid": true,
+      "reject": null,
+      "idx": 18
+    },
+    {
+      "n_fingers": 4,
+      "n_spheres": 6,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "thumb",
+        "middle",
+        "ring",
+        "pinky"
+      ],
+      "spheres_per_finger": {
+        "thumb": 1,
+        "index": 0,
+        "middle": 2,
+        "ring": 2,
+        "pinky": 1
+      },
+      "faces": {
+        "+z": 1,
+        "-x": 5
+      },
+      "min_gap": -0.00199,
+      "tip_min_gap": 0.00605,
+      "fswo": -1.0001468581787467,
+      "valid": false,
+      "reject": "not force-closable (FSWO -1.0001 < -0.05; no opposing faces touched, faces +z/-x)",
+      "idx": 19
+    },
+    {
+      "n_fingers": 4,
+      "n_spheres": 5,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "thumb",
+        "index",
+        "middle",
+        "ring"
+      ],
+      "spheres_per_finger": {
+        "thumb": 1,
+        "index": 1,
+        "middle": 2,
+        "ring": 1,
+        "pinky": 0
+      },
+      "faces": {
+        "+z": 2,
+        "-x": 3
+      },
+      "min_gap": 0.00202,
+      "tip_min_gap": 0.00902,
+      "fswo": -1.000299574911065,
+      "valid": false,
+      "reject": "not force-closable (FSWO -1.0003 < -0.05; no opposing faces touched, faces +z/-x)",
+      "idx": 20
+    },
+    {
+      "n_fingers": 4,
+      "n_spheres": 8,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "thumb",
+        "index",
+        "middle",
+        "ring"
+      ],
+      "spheres_per_finger": {
+        "thumb": 3,
+        "index": 1,
+        "middle": 2,
+        "ring": 2,
+        "pinky": 0
+      },
+      "faces": {
+        "+z": 4,
+        "-x": 4
+      },
+      "min_gap": 0.00063,
+      "tip_min_gap": 0.00763,
+      "fswo": -1.0001389987715492,
+      "valid": false,
+      "reject": "not force-closable (FSWO -1.0001 < -0.05; no opposing faces touched, faces +z/-x)",
+      "idx": 21
+    },
+    {
+      "n_fingers": 4,
+      "n_spheres": 7,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "thumb",
+        "index",
+        "middle",
+        "ring"
+      ],
+      "spheres_per_finger": {
+        "thumb": 2,
+        "index": 1,
+        "middle": 2,
+        "ring": 2,
+        "pinky": 0
+      },
+      "faces": {
+        "+z": 3,
+        "-x": 4
+      },
+      "min_gap": 0.00054,
+      "tip_min_gap": 0.00754,
+      "fswo": -1.0001887060801313,
+      "valid": false,
+      "reject": "not force-closable (FSWO -1.0002 < -0.05; no opposing faces touched, faces +z/-x)",
+      "idx": 22
+    },
+    {
+      "n_fingers": 4,
+      "n_spheres": 6,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "thumb",
+        "index",
+        "middle",
+        "ring"
+      ],
+      "spheres_per_finger": {
+        "thumb": 1,
+        "index": 1,
+        "middle": 2,
+        "ring": 2,
+        "pinky": 0
+      },
+      "faces": {
+        "+z": 2,
+        "-x": 4
+      },
+      "min_gap": 0.00119,
+      "tip_min_gap": 0.00897,
+      "fswo": -1.0002065334015298,
+      "valid": false,
+      "reject": "not force-closable (FSWO -1.0002 < -0.05; no opposing faces touched, faces +z/-x)",
+      "idx": 23
+    },
+    {
+      "n_fingers": 3,
+      "n_spheres": 6,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "index",
+        "middle",
+        "ring"
+      ],
+      "spheres_per_finger": {
+        "thumb": 0,
+        "index": 2,
+        "middle": 2,
+        "ring": 2,
+        "pinky": 0
+      },
+      "faces": {
+        "+x": 5,
+        "+z": 1
+      },
+      "min_gap": 0.00029,
+      "tip_min_gap": 0.00773,
+      "fswo": -1.0001729921436997,
+      "valid": false,
+      "reject": "not force-closable (FSWO -1.0002 < -0.05; no opposing faces touched, faces +x/+z)",
+      "idx": 24
+    },
+    {
+      "n_fingers": 4,
+      "n_spheres": 7,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "thumb",
+        "index",
+        "middle",
+        "ring"
+      ],
+      "spheres_per_finger": {
+        "thumb": 3,
+        "index": 1,
+        "middle": 2,
+        "ring": 1,
+        "pinky": 0
+      },
+      "faces": {
+        "+z": 4,
+        "+x": 3
+      },
+      "min_gap": 0.00141,
+      "tip_min_gap": 0.00841,
+      "fswo": -1.000017950952713,
+      "valid": false,
+      "reject": "not force-closable (FSWO -1.0000 < -0.05; no opposing faces touched, faces +x/+z)",
+      "idx": 25
+    },
+    {
+      "n_fingers": 4,
+      "n_spheres": 5,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "thumb",
+        "index",
+        "middle",
+        "ring"
+      ],
+      "spheres_per_finger": {
+        "thumb": 2,
+        "index": 1,
+        "middle": 1,
+        "ring": 1,
+        "pinky": 0
+      },
+      "faces": {
+        "-x": 1,
+        "+z": 3,
+        "-y": 1
+      },
+      "min_gap": -0.00239,
+      "tip_min_gap": 0.00461,
+      "fswo": -1.0001394386308027,
+      "valid": false,
+      "reject": "not force-closable (FSWO -1.0001 < -0.05; no opposing faces touched, faces +z/-x/-y)",
+      "idx": 26
+    },
+    {
+      "n_fingers": 4,
+      "n_spheres": 8,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "thumb",
+        "index",
+        "middle",
+        "ring"
+      ],
+      "spheres_per_finger": {
+        "thumb": 2,
+        "index": 2,
+        "middle": 2,
+        "ring": 2,
+        "pinky": 0
+      },
+      "faces": {
+        "-x": 1,
+        "+y": 1,
+        "+x": 4,
+        "-y": 2
+      },
+      "min_gap": -0.00112,
+      "tip_min_gap": 0.00773,
+      "fswo": -9.141678721434056e-33,
+      "valid": true,
+      "reject": null,
+      "idx": 27
+    },
+    {
+      "n_fingers": 4,
+      "n_spheres": 8,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "thumb",
+        "index",
+        "middle",
+        "ring"
+      ],
+      "spheres_per_finger": {
+        "thumb": 3,
+        "index": 1,
+        "middle": 2,
+        "ring": 2,
+        "pinky": 0
+      },
+      "faces": {
+        "+z": 4,
+        "+x": 4
+      },
+      "min_gap": 0.00221,
+      "tip_min_gap": 0.00935,
+      "fswo": -1.0000164237523748,
+      "valid": false,
+      "reject": "not force-closable (FSWO -1.0000 < -0.05; no opposing faces touched, faces +x/+z)",
       "idx": 28
     },
     {
@@ -873,57 +871,55 @@
         "ring"
       ],
       "spheres_per_finger": {
-        "thumb": 4,
+        "thumb": 2,
         "index": 1,
-        "middle": 1,
+        "middle": 2,
+        "ring": 2,
+        "pinky": 0
+      },
+      "faces": {
+        "-x": 1,
+        "+y": 1,
+        "+x": 2,
+        "+z": 1,
+        "-y": 2
+      },
+      "min_gap": -0.00229,
+      "tip_min_gap": 0.00471,
+      "fswo": -8.92577664219548e-06,
+      "valid": true,
+      "reject": null,
+      "idx": 29
+    },
+    {
+      "n_fingers": 2,
+      "n_spheres": 3,
+      "n_palm_spheres": 0,
+      "fingers": [
+        "middle",
+        "ring"
+      ],
+      "spheres_per_finger": {
+        "thumb": 0,
+        "index": 0,
+        "middle": 2,
         "ring": 1,
         "pinky": 0
       },
       "faces": {
-        "+z": 2,
         "+y": 2,
-        "+x": 1,
-        "-y": 2
+        "+x": 1
       },
-      "min_gap": -0.01258,
-      "tip_min_gap": -0.00348,
+      "min_gap": -0.00183,
+      "tip_min_gap": 0.00517,
       "fswo": null,
       "valid": false,
-      "reject": "fingertip 3.5 mm inside the cube (limit 3.0 mm)",
-      "idx": 29
-    },
-    {
-      "n_fingers": 3,
-      "n_spheres": 8,
-      "n_palm_spheres": 0,
-      "fingers": [
-        "thumb",
-        "index",
-        "middle"
-      ],
-      "spheres_per_finger": {
-        "thumb": 4,
-        "index": 2,
-        "middle": 2,
-        "ring": 0,
-        "pinky": 0
-      },
-      "faces": {
-        "+z": 4,
-        "+y": 1,
-        "+x": 1,
-        "-y": 2
-      },
-      "min_gap": -0.01541,
-      "tip_min_gap": -0.00503,
-      "fswo": null,
-      "valid": false,
-      "reject": "fingertip 5.0 mm inside the cube (limit 3.0 mm)",
+      "reject": "only 2 finger(s) / 3 sphere(s) touching",
       "idx": 30
     },
     {
       "n_fingers": 4,
-      "n_spheres": 9,
+      "n_spheres": 7,
       "n_palm_spheres": 0,
       "fingers": [
         "thumb",
@@ -932,22 +928,21 @@
         "ring"
       ],
       "spheres_per_finger": {
-        "thumb": 4,
-        "index": 2,
+        "thumb": 3,
+        "index": 1,
         "middle": 2,
         "ring": 1,
         "pinky": 0
       },
       "faces": {
-        "+z": 2,
-        "+x": 4,
-        "-y": 3
+        "+z": 4,
+        "-x": 3
       },
-      "min_gap": -0.01668,
-      "tip_min_gap": -0.00968,
-      "fswo": null,
+      "min_gap": -0.00099,
+      "tip_min_gap": 0.00601,
+      "fswo": -1.000363855578089,
       "valid": false,
-      "reject": "fingertip 9.7 mm inside the cube (limit 3.0 mm)",
+      "reject": "not force-closable (FSWO -1.0004 < -0.05; no opposing faces touched, faces +z/-x)",
       "idx": 31
     }
   ]
