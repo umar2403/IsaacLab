@@ -1,4 +1,4 @@
-# g1_pick — working context (as of 2026-07-27)
+# g1_pick — working context (as of 2026-07-29)
 
 Narrative of how the grasp-selection work got to its current state, what was learned,
 and what is still open. Companion to `OPTIMIZER_IMPLEMENTATION_SPEC.md` (the algorithm)
@@ -146,7 +146,8 @@ Verified in a 3-iteration smoke run: `target_lifted` 0.94 → 0.96 (pick intact)
 `task_reward` fell 3.674 → 0.749. That ratio is ≈ 0.2, i.e. the policy is collecting
 **exactly the floor** — `pose_match ≈ 0` for its current grasp, so the gate is biting.
 
-**Next run:** resume from `model_10997`, 3000 iterations.
+**This run has since completed — see section 8 for the (negative) result.**
+The command used was:
 
 ```bash
 cd /home/umar/IsaacLab
@@ -165,7 +166,65 @@ python scripts/reinforcement_learning/rsl_rl/train.py \
 Knobs if too harsh: raise `success_floor` toward 0.4, or loosen `pose_pos_std` /
 `pose_ang_std`.
 
-## 8. Open questions
+## 8. Result of the pose-gated run — it did NOT work
+
+`2026-07-28_01-29-33_grasp12_posegated`, 3000 iterations, `model_10997` → `model_13996`,
+`fixed_grasp_idx: 12`, `pose_gated_success: true`, `success_floor: 0.2`.
+
+| metric | start | 50% | end | max |
+|---|---|---|---|---|
+| `Episode_Termination/target_lifted` | 0.506 | 0.942 | **0.933** | 0.954 |
+| `Episode_Reward/task_reward` | 0.511 | 0.989 | 1.075 | 1.111 |
+| **`Episode_Reward/grasp_goal_palm`** | 0.019 | 0.028 | **0.028** | 0.030 |
+| **`Episode_Reward/grasp_goal_hand`** | 0.002 | 0.002 | **0.002** | 0.002 |
+| `Episode_Termination/distractor_dropped` | 0.016 | 0.054 | 0.062 | 0.075 |
+| `Train/mean_episode_length` | 16.5 | 15.6 | 15.7 | 21.3 |
+
+**The pose terms are still flat.** `grasp_goal_palm` sat at the same ~0.028–0.030 plateau
+as the previous run; `grasp_goal_hand` never moved off 0.002. The policy simply got its
+pick rate back up (0.51 → 0.93) and collected the 200-point floor, exactly as before.
+`task_reward` rising 0.511 → 1.075 is that recovering pick rate, **not** improving pose
+match — if `pose_match` had improved, `grasp_goal_palm` would have moved too, since both
+read the same pose error.
+
+So a 5× incentive (200 vs 1000) applied to the terminal bonus was **not** enough.
+
+### Why — the current best explanation
+
+The decisive observation is that **`grasp_goal_palm` is dense, ungated, and at weight 2.0,
+and it still produced zero movement in 6000 total iterations across two runs.** That rules
+out "the shaping is too small or too gated" as the whole story. Two candidates remain:
+
+1. **Exploration / sparse conjunction.** The extra 800 points only materialise when the
+   policy matches the pose *and* still completes a grasp-and-lift. Random exploration
+   essentially never produces that conjunction, so the gradient toward it is never
+   sampled. The episode is also only ~16 steps (~0.5 s at 30 Hz) — the policy dives
+   straight in, leaving little time to align a wrist pose en route.
+2. **The 65° pose is not reachable** for this arm at the tray, so `pose_match` cannot rise
+   and settling for the floor is genuinely optimal.
+
+These have not been distinguished yet. **Cheap test:** `play_with_goal_markers.py` prints
+the live palm→goal distance and colours the goal sphere green on reach. Run it on
+`model_13996` — if the palm settles ~10–15 cm from the goal, the pose is nearly reachable
+and this is an exploration problem (1). If the distance stays large or the arm visibly
+strains/hits limits, it is reachability (2).
+
+### What to try next, roughly in order of expected value
+
+- **Curriculum / phase split.** Train reaching the goal *pose* first with the lift reward
+  disabled, then re-enable lifting. This removes the conjunction that (1) says is the
+  blocker — the policy learns the pose while it is the only thing being rewarded.
+- **Shape the approach, not just the endpoint.** Reward pose match *along the trajectory*
+  with real weight, rather than only at the moment of lift.
+- **Slow the policy down.** ~16-step episodes mean a ballistic dive. An action-rate or
+  approach-speed constraint would give the wrist time to align.
+- **Try #18** (top-down, zero fingertip penetration) to remove reachability as a variable.
+  If the pose terms move for #18 but not #12, that settles (1) vs (2) directly.
+- Reconsider whether pose imitation is the right mechanism at all — an alternative for the
+  hardware goal is to keep the policy's own grasp and validate it with the optimizer as an
+  offline scoring tool, which is what `grasp_selection/` already does well.
+
+## 9. Open questions
 
 - **Arm reachability at 65° is unverified.** No IK check has ever been run for a
   side-approach wrist pose at the tray. This is the main risk for #12.
@@ -178,7 +237,7 @@ Knobs if too harsh: raise `success_floor` toward 0.4, or loosen `pose_pos_std` /
   hand ~10 cm wide). Comparable to #23's 7.0 cm, so probably not disqualifying, but worth
   watching `Episode_Termination/distractor_dropped`.
 
-## 9. Running things
+## 10. Running things
 
 `./isaaclab.sh -p` picks the wrong Python in a non-interactive shell. Use:
 
