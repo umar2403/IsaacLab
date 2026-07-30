@@ -211,9 +211,7 @@ strains/hits limits, it is reachability (2).
 
 ### What to try next, roughly in order of expected value
 
-- **Curriculum / phase split.** Train reaching the goal *pose* first with the lift reward
-  disabled, then re-enable lifting. This removes the conjunction that (1) says is the
-  blocker — the policy learns the pose while it is the only thing being rewarded.
+- **Curriculum / phase split** — see section 9, which works this out in detail.
 - **Shape the approach, not just the endpoint.** Reward pose match *along the trajectory*
   with real weight, rather than only at the moment of lift.
 - **Slow the policy down.** ~16-step episodes mean a ballistic dive. An action-rate or
@@ -224,10 +222,89 @@ strains/hits limits, it is reachability (2).
   hardware goal is to keep the policy's own grasp and validate it with the optimizer as an
   offline scoring tool, which is what `grasp_selection/` already does well.
 
-## 9. Open questions
+## 9. The curriculum plan, and why a demo probe should come first
+
+### The proposal (Umar's, 2026-07-29)
+
+Start from the latest checkpoint (`model_13996`), which already knows the pick. Then:
+
+- **Phase 1** — set the lift/task reward to zero or very low, make the pose-matching
+  reward very high, and train until the policy reliably reaches the goal pose within some
+  tolerance.
+- **Phase 2** — once the pose is being hit, switch the task-completion reward back on.
+  Since the policy already knows how to pick, the hope is it recombines the two.
+
+**Stated worry:** during phase 1 it may forget picking entirely, and then when a large
+pickup reward reappears the run destabilises and does something erratic.
+
+### Assessment — the worry is right, but the mechanism is worse than "forgetting"
+
+The dominant hazard is not the policy losing the behaviour, it is the **critic**. With the
+lift reward at ~0 in phase 1, the value function retrains to predict pose-only returns,
+which are small. Switching a 1000-point term back on means the critic predicts ≈0 for
+states that now return 1000 → advantage estimates explode → very large policy-gradient
+steps. PPO's clipping bounds the probability *ratio*, not the advantage magnitude, so it
+does not protect against this. A hard reward switch also makes the MDP non-stationary,
+which PPO assumes it is not.
+
+Three mitigations, all cheap:
+
+1. **Never zero the task reward.** Keep 20–30% of it. Same logic as the `success_floor`
+   already used in section 7 — preventing forgetting is far cheaper than recovering.
+2. **Ramp, don't switch.** Move both weights linearly over a few hundred iterations so the
+   MDP stays quasi-stationary and the critic can track the change.
+3. **Use the existing machinery.** `mdp/curriculum.py` already contains
+   `PickingCurriculumScheduler` ("adaptive difficulty scheduler with three-phase reward
+   gating") and it is **not currently wired into `g1_pick_env_cfg.py`**. That is where
+   this belongs, rather than hand-editing weights between runs.
+
+### But run the demo oracle first — it is the higher-information experiment
+
+`grasp_sampler/collect_demos.py` already exists and **has never been run**
+(`grasp_dataset/bc_demos.npz` is absent). From its docstring: a scripted oracle drives the
+real env through its own action pipeline — **differential IK moves the palm through the
+BODex goal grasp** (pregrasp → grasp), the fingers close (pregrasp → grasp → squeeze), the
+arm lifts, and **only episodes where the env's own success termination fires are kept**.
+It reads the live goal term, so today it would execute **grasp #12** specifically.
+Actions are recorded policy-compatible (`a = (q_target − q_default)/scale`).
+
+Running it settles the two questions blocking everything:
+
+1. **Reachability, definitively, in ~20 minutes.** If a damped-least-squares IK oracle can
+   put the palm on grasp #12 and lift the cube, the pose *is* reachable and the blocker is
+   purely exploration — which means the curriculum can work. If the oracle cannot, then no
+   reward curriculum will ever work and #12 is off the table however good it looks. Right
+   now (1) vs (2) in section 8 is a guess; this measures it.
+2. **Demonstrations that are pose-matched AND successful** — exactly the conjunction that
+   RL exploration never samples, which is the leading explanation for a dense, ungated,
+   weight-2.0 pose term producing literally zero movement across 6000 iterations.
+
+The underlying argument: **we are trying to make RL discover a pose we already know in
+closed form.** The target palm pose and joint angles are known exactly. Demonstrating it
+(BC pretrain → RL fine-tune) is strictly easier than incentivising its discovery.
+
+A cheaper cousin worth remembering: **reset-state distribution shaping** — initialise a
+fraction of episodes with the hand already at the grasp pose, let the policy learn that
+state is valuable, then anneal. It needs the same IK that `collect_demos.py` already has.
+
+### Recommended order
+
+1. Run `collect_demos.py` small (e.g. `--num_envs 64`, ~50 episodes) purely as a
+   reachability probe on #12; read the oracle's success rate.
+2. **If it succeeds:** collect the full dataset (~2000), BC-pretrain, then RL fine-tune
+   with the pose terms. The curriculum above becomes a useful complement, not the primary
+   mechanism.
+3. **If it fails:** #12 is not executable by this arm at the tray. Re-probe with #18. If
+   #18 works, the top-down family is the answer and the side-grasp direction closes.
+
+The curriculum is worth running either way — but after step 1, because step 1 determines
+whether it can possibly succeed.
+
+## 10. Open questions
 
 - **Arm reachability at 65° is unverified.** No IK check has ever been run for a
-  side-approach wrist pose at the tray. This is the main risk for #12.
+  side-approach wrist pose at the tray. This is the main risk for #12, and section 9
+  describes the ~20-minute probe (`collect_demos.py`) that would settle it.
 - **The grasp has never been tested for stability.** `target_object_lifted` is a
   single-frame height check with no dwell requirement, and episodes average ~37 steps
   (~1.2 s at 30 Hz), so nothing has ever asked the policy to *hold*. Making it require
@@ -237,7 +314,7 @@ strains/hits limits, it is reachability (2).
   hand ~10 cm wide). Comparable to #23's 7.0 cm, so probably not disqualifying, but worth
   watching `Episode_Termination/distractor_dropped`.
 
-## 10. Running things
+## 11. Running things
 
 `./isaaclab.sh -p` picks the wrong Python in a non-interactive shell. Use:
 
