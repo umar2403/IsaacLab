@@ -332,3 +332,116 @@ Inspect a grasp visually (CPU-only, writes a self-contained three.js page):
 ```bash
 python grasp_sampler/visualize_grasp_offline.py --mode contacts   # green = contacting spheres
 ```
+
+## 12. 2026-08-03 — grasp_reach, real hand/cube tunneling, and the from-scratch control experiment
+
+Since section 11 was written: the full UltraDexGrasp/BODex CUDA pipeline (was stubbed —
+`ultradex_repo` empty, `collision_spheres: {}`) got built end-to-end and now runs live on
+this server's RTX 2080s. `grasp_reach` (MDP_REPORT.md §5.2.4) was implemented and wired in:
+per-fingertip dense reward pulling each of the 5 tracked fingertips to its own contact
+point on the cube surface for grasp #12 (points cached in
+`grasp_selection/fingertip_contacts.json` via `grasp_selection/cache_fingertip_contacts.py`,
+so training doesn't need `ultradex_repo`/the URDF present — it's gitignored). Training
+resumed on top of the existing checkpoint (`grasp_reach_v1` → `grasp_reach_v1_cont`,
+ended iter 10997) rather than from scratch.
+
+### The problem: real, measured interpenetration
+
+User caught visually in the close-up inference video that the hand appears to pass
+through the cube while closing, not just brush it. Built a rigorous diagnostic (not the
+collision-sphere approximation — a real SDF against the cube's actual box geometry,
+reusing `cube_surface_dist` from `grasp_selection/hand_model.py`) into
+`grasp_sampler/play_with_goal_markers.py`: logs min hand-sphere↔cube-surface gap every
+control step across multiple episodes, graphs it (`hand_cube_penetration.png`, shaded
+region = gap < 0), prints a summary line. Confirmed on checkpoint `model_10997.pt`
+(`2026-07-30_17-42-03_grasp_reach_v1_cont`): **53/108 steps penetrating, worst −2.79 cm**
+on a 5 cm cube. Not a sphere-approximation artifact — the user independently confirmed via
+the HTML mesh viewer that the palm visibly crosses fully into the cube.
+
+### Physics-only tuning: partial improvement, real ceiling
+
+User's constraint: fix via **pure PhysX simulation-fidelity settings only** — no touching
+reward, policy/checkpoint, or MDP (obs/action space, termination, curriculum).
+
+- `enable_ccd=True` (global, `SimulationCfg.PhysxCfg`) — enabled, did not resolve it alone.
+- `max_depenetration_velocity` 1.0→5.0 (robot in `robot_cfg.py`; explicitly set to 5.0 on
+  cube+distractors in `g1_pick_env_cfg.py`, previously PhysX-default/unset) —
+  **overcorrected**: penetration *frequency* roughly halved (117/517 ≈ 22.6%) but peak
+  *depth* was unchanged (−2.78 cm) — and it visibly launched the cube away from the hand
+  for long stretches in some episodes (explosive separation from injecting too much
+  corrective velocity). Dialed back to 2.0 + `solver_position_iteration_count` 32→48
+  (robot) as a gentler, lower-risk lever (more accurate contact resolution without adding
+  spurious velocity). **Not re-verified after the dial-back** — the next session should
+  re-run the `--episodes 8` diagnostic on `model_10997.pt` with these settings before
+  trusting them.
+- Bigger-picture finding that limits this whole approach: **the policy was trained under
+  one set of physics settings and is now being evaluated under a different one.**
+  Changing contact response out from under an already-frozen policy is a real train/test
+  mismatch, independent of which direction you tune it. Physics-only tuning can soften the
+  symptom but cannot fix behaviour the policy already learned to rely on.
+
+### Cross-check: is this specific to grasp_reach / this checkpoint?
+
+Cloned siddharth's original repo (`https://github.com/daatsi-aeres/IsaacLab`, now at
+`/home/shahid/Siddharth`, separate `shahid_siddharth_repo` docker container) to get an
+independent data point. Its `working_models/model_4999_perfect_pick_v3_padded_96dim.pt`
+is **not** what it looks like: `tools/pad_checkpoint.py` + full git archaeology
+(`git log --all --diff-filter=A -- '*.pt'` across the whole history) prove it is a
+zero-padded reshape of a 66-dim single-target checkpoint, never actually retrained with
+distractors — every commit after distractors were added only renames/re-pads the same
+file; no `events.out.tfevents` exists anywhere in history after that point. Un-padded it
+back to the true 66-dim weights (`tools/unpad`, lossless — padding was a pure zero-insert)
+and ran it against the archived matching config
+(`g1_pick_env_cfg_v1_picks_1_target_perfectly.py`, registered as
+`Isaac-G1-Pick-Original-Play-v0`): clean, no-distractor task, as expected.
+
+Then ran the **padded 96-dim version** (the one that's actually usable against the current
+distractor task) through the same penetration diagnostic (ported to that repo as
+`scripts/reinforcement_learning/rsl_rl/eval_penetration.py` — simpler than this repo's
+version, no collision-sphere/mesh radius data available there, tracks 6 body *origins* as
+points against the cube box SDF) and a large-scale success-rate eval
+(`eval_success_rate.py`, 2048 envs × 1500 steps ≈ 49,880 episodes — **must** mask
+`termination_manager.get_term(name)` by `dones` this step, it holds the stale cause of the
+env's *last* episode otherwise and wildly overcounts):
+
+- **Success rate (target_lifted): 72.6%**, failure mostly `distractor_dropped` (18.1%).
+- **Penetration: 61/571 steps (10.7%), worst −0.91 cm** — real, but far milder than
+  `grasp_reach`'s −2.79 cm / ~49%.
+
+So: siddharth's checkpoint (base reward, no grasp_reach, no distractor-aware training at
+all — improvising) still shows *some* real penetration, ruling out "it's specific to
+grasp_reach" as the sole explanation, but it's an order of magnitude cleaner. The gap
+between −0.91 cm and −2.79 cm is the thing to explain.
+
+### Decided next step (not yet run)
+
+User's own diagnosis, agreed: two live hypotheses for why umar's branch is worse —
+(a) something is actually broken/misconfigured in this repo's physics/collision setup, or
+(b) reward hacking / overfitting — training too long, or repeatedly resuming an
+already-warm checkpoint, let PPO find "close the hand fast, eat the interpenetration
+penalty" as a cheap shortcut once the reward landscape allows it.
+
+**Control experiment, in this repo, decided but not yet executed:** train
+`Isaac-G1-Pick-v0` **from scratch** (fresh init, no `--resume`) with `grasp_goal_palm`,
+`grasp_goal_hand`, and `grasp_reach` **disabled** (comment out or zero-weight those three
+`RewTerm`s in `g1_pick_env_cfg.py`'s `RewardsCfg`, lines ~594-624 — leave `task_reward`,
+`action_smoothness`, `fingertip_impact`, and the distractor penalties active). This is the
+same base reward siddharth's clean checkpoint used, on the *current* distractor task in
+*this* repo/physics config.
+
+- **If it comes out clipping-free** (penetration diagnostic comparable to siddharth's
+  ~10%/−0.9cm or better): strong evidence for hypothesis (b), not (a). Re-add
+  `grasp_goal_palm`/`grasp_goal_hand`/`grasp_reach` and train **that from scratch too**
+  (not resumed — a warm start already carries whatever motion habit caused the tunneling).
+  If clipping reappears even from a fresh init with grasp_reach active, suspect the
+  **reward weight balance** next (grasp_reach pulling fingertips fast with insufficient
+  opposing `action_smoothness`/velocity penalty), not "needs more from-scratch attempts."
+- **If it still clips:** points at (a), something physics/config-specific to this repo.
+  Next move would be a direct diff of `robot_cfg.py`/`g1_pick_env_cfg.py` rigid-body/solver
+  settings against `/home/shahid/Siddharth`'s equivalents, rather than more reward changes.
+
+Do **not** port the grasp_sampler/UltraDexGrasp/optimizer pipeline into siddharth's repo
+unless this control experiment specifically points at (a) — it's a large, error-prone lift
+(this session spent a long time just getting it built once), only worth it if the evidence
+says the problem is repo-specific rather than a training-dynamics issue this repo can
+already answer on its own.

@@ -1,0 +1,99 @@
+# DRAFT v2 -- now matches BODex_api's REAL schema (copied structurally from the
+# actual, working ultradex_repo/third_party/BODex_api/src/bodex/content/configs/manip/
+# sim_xhand_sim2real/fc_right.yml). Everything under seeder_cfg / grasp_contact_strategy /
+# grasp_cfg is BODex's internal optimization schedule -- xhand's own numbers are used
+# as a starting point (same order of magnitude problem: a multi-fingered hand closing
+# on a small rigid object) but are NOT verified for the Inspire hand + 5cm cube specifically.
+# Tune `jitter_angle`/`jitter_dist`/`q` once synthesis is actually running and producing
+# grasps that look wrong (e.g. always the same pose, or never converging).
+#
+# Target path: ultradex_repo/third_party/BODex_api/src/bodex/content/configs/manip/sim_inspire_sim2real/fc_right.yml
+# STATUS (2026-07-13): copied into that real path already.
+#
+# NOTE -- traced through GraspSolverConfig.load_from_robot_config in
+# src/bodex/wrap/reacher/grasp_solver.py: it reads manip_config_data['robot_file'],
+# ['seeder_cfg'], ['grasp_contact_strategy'], ['grasp_cfg'], ['base_cfg_file'],
+# ['particle_file'], ['gradient_file'] -- but NEVER manip_config_data['world']. The
+# `world:` block below is dead for our actual call path
+# (GraspSynthesizer.synthesize_grasp() in ultradex_repo/util/bodex_util.py builds its
+# own world_cfg directly from synthesize_inspire_grasps.py's CUBE_ASSET/CUBE_SIZE/
+# CUBE_QUAT_WXYZ constants, passed as an explicit argument that overrides whatever is
+# here). Kept for documentation of intent only -- the object asset directory that
+# actually matters is ultradex_repo/asset/object_mesh/cube/ (now created, matching
+# the upstream bowl/ example's layout), pointed at by CUBE_ASSET in
+# synthesize_inspire_grasps.py, not by this file.
+
+world:
+  indicator: "{$OBJECT_CODE}"
+  # Dead for our call path (see NOTE above) -- kept in sync with CUBE_ASSET anyway.
+  template_path: "object_mesh/{$OBJECT_CODE}/mesh/simplified.obj"
+  additional_cfg_path: "collision_table.yml"
+  selection:
+    id_lst_path:
+    id: cube
+    start: 0
+    end: 1
+    repeat: 1
+    shuffle: False
+  base_info_path: "object_mesh/{$OBJECT_CODE}/info/simplified.json"
+  urdf_path: "object_mesh/{$OBJECT_CODE}/urdf/coacd.urdf"
+  fixed_scale_lst: [0.05]  # 5 cm cube (CUBE_SIZE in synthesize_inspire_grasps.py)
+  fixed_pose_lst: [[0.0, 0.0, 0.0, 1, 0, 0, 0.0]]
+
+robot_file: "inspire_right_sim2real.yml"
+robot_file_with_arm:
+base_cfg_file: "base_grasp.yml"
+particle_file: "particle_grasp_debug.yml"
+gradient_file: "gradient_grasp_fc.yml"
+
+exp_name: inspire_cube_debug
+seed_num: 100  # NUM_GRASPS in synthesize_inspire_grasps.py
+seeder_cfg:
+  obj_sample:
+    num: 128
+    inflate: 0.1
+    convex_hull: True
+    collision_free: True
+  ik_init_q:
+  load_path:
+  skip_transfer: False
+  t:
+  r:
+  # TODO: verify against inspire_right_sim2real.yml's cspace.retract_config once the
+  # real URDF's joint sign convention is confirmed -- currently just a copy of it.
+  q: [0.7, 0.0, 0.0, 0.0, 0.0, 0.0]
+  jitter_angle: [[-15, -15, -15], [15, 15, 15]]
+  jitter_dist: [[0.0, -0.03, -0.03], [0.03, 0.03, 0.03]]
+
+grasp_contact_strategy:
+  # Order: [index, middle, ring, pinky, thumb] -- matches ee_link/link_names split in
+  # inspire_right_sim2real.yml. NOTE: these reference the real collision-bearing
+  # links (*_intermediate/*_distal), NOT the zero-size "_tip" links used for
+  # ee_link/link_names above -- contact points need an actual collision sphere to
+  # attach to, and the "_tip" links have no collision geometry of their own in this
+  # URDF. "/0" = first collision sphere on that link; per Misc./UltraDex.md S2.2,
+  # gen_spheres.py should place it exactly at the fingertip when spheres are
+  # actually generated (still TODO, see ASSET_SETUP.md).
+  contact_points_name:
+    ["index_intermediate/0", "middle_intermediate/0", "ring_intermediate/0", "pinky_intermediate/0", "thumb_distal/0"]
+  opt_progress: [0.0, 0.6, 0.8]
+  distance: [0.013, 0.013, 0.0]
+  contact_query_mode: [-1, 0, 0]
+  save_qpos: [False, True]
+  max_ge_stage: 0
+
+grasp_cfg:
+  task_dict:
+    f: [0, 0, 1]
+    p: [0, 0, 0]
+    t: [0, 0, 0]
+    gamma: 180
+  ge_param:
+    type: "qp"
+    miu_coef: [0.1, 0]
+    solver_type: "batch_reluqp"
+    k_lower: 0.2
+    pressure_constraints: # [contact_id_list, lower]
+      [[[0, 1, 2, 3, 4], 1.0], [[0, 1, 2], 0.4], [[4], 0.5]]
+    enable_density: False
+    solve_interval: 5

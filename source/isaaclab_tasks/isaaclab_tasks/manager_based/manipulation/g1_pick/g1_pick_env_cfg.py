@@ -281,6 +281,8 @@ class SceneCfg(InteractiveSceneCfg):
                 solver_position_iteration_count=16, # High iterations ensure stable grasping physics
                 solver_velocity_iteration_count=4,
                 disable_gravity=False,
+                max_depenetration_velocity=5.0, # was unset (PhysX default); matches robot_cfg.py's
+                # raised value -- was the likely bottleneck behind measured hand/cube interpenetration
             ),
             mass_props=sim_utils.MassPropertiesCfg(mass=0.2), # Light enough to lift, heavy enough to drop realistically
             collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
@@ -298,7 +300,7 @@ class SceneCfg(InteractiveSceneCfg):
             size=(0.05, 0.05, 0.05),
             physics_material=RigidBodyMaterialCfg(static_friction=1.0, dynamic_friction=1.0),
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 0.0, 1.0)),
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False, max_depenetration_velocity=5.0),
             mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
             collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
         ),
@@ -311,7 +313,7 @@ class SceneCfg(InteractiveSceneCfg):
             size=(0.05, 0.05, 0.05),
             physics_material=RigidBodyMaterialCfg(static_friction=1.0, dynamic_friction=1.0),
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0)),
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False, max_depenetration_velocity=5.0),
             mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
             collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
         ),
@@ -324,7 +326,7 @@ class SceneCfg(InteractiveSceneCfg):
             size=(0.05, 0.05, 0.05),
             physics_material=RigidBodyMaterialCfg(static_friction=1.0, dynamic_friction=1.0),
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 1.0, 0.0)),
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False, max_depenetration_velocity=5.0),
             mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
             collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
         ),
@@ -337,7 +339,7 @@ class SceneCfg(InteractiveSceneCfg):
             size=(0.05, 0.05, 0.05),
             physics_material=RigidBodyMaterialCfg(static_friction=1.0, dynamic_friction=1.0),
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.5, 0.0)),
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False, max_depenetration_velocity=5.0),
             mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
             collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
         ),
@@ -350,7 +352,7 @@ class SceneCfg(InteractiveSceneCfg):
             size=(0.05, 0.05, 0.05),
             physics_material=RigidBodyMaterialCfg(static_friction=1.0, dynamic_friction=1.0),
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.5, 0.0, 1.0)),
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False, max_depenetration_velocity=5.0),
             mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
             collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
         ),
@@ -363,7 +365,7 @@ class SceneCfg(InteractiveSceneCfg):
             size=(0.05, 0.05, 0.05),
             physics_material=RigidBodyMaterialCfg(static_friction=1.0, dynamic_friction=1.0),
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 1.0)),
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False, max_depenetration_velocity=5.0),
             mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
             collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
         ),
@@ -376,7 +378,7 @@ class SceneCfg(InteractiveSceneCfg):
             size=(0.05, 0.05, 0.05),
             physics_material=RigidBodyMaterialCfg(static_friction=1.0, dynamic_friction=1.0),
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.0, 1.0)),
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False, max_depenetration_velocity=5.0),
             mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
             collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
         ),
@@ -389,7 +391,7 @@ class SceneCfg(InteractiveSceneCfg):
             size=(0.05, 0.05, 0.05),
             physics_material=RigidBodyMaterialCfg(static_friction=1.0, dynamic_friction=1.0),
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.6, 0.3, 0.1)),
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False, max_depenetration_velocity=5.0),
             mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
             collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
         ),
@@ -402,7 +404,7 @@ class SceneCfg(InteractiveSceneCfg):
             size=(0.05, 0.05, 0.05),
             physics_material=RigidBodyMaterialCfg(static_friction=1.0, dynamic_friction=1.0),
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.2, 0.8, 0.4)),
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False, max_depenetration_velocity=5.0),
             mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
             collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
         ),
@@ -415,7 +417,7 @@ class SceneCfg(InteractiveSceneCfg):
             size=(0.05, 0.05, 0.05),
             physics_material=RigidBodyMaterialCfg(static_friction=1.0, dynamic_friction=1.0),
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.8, 0.8, 0.8)),
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(solver_position_iteration_count=16, solver_velocity_iteration_count=4, disable_gravity=False, max_depenetration_velocity=5.0),
             mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
             collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
         ),
@@ -608,6 +610,17 @@ class RewardsCfg:
         func=mdp.grasp_goal_hand_config_reward,
         weight=1.0,
         params={"robot_cfg": SceneEntityCfg("robot"), "q_std": 0.5, "gate_dist": 0.20},
+    )
+
+    # Per-fingertip contact-point reward (MDP_REPORT.md §5.2.4): pulls each of the 5
+    # tracked fingertips toward its OWN target point on the cube surface for grasp #12
+    # (grasp_selection's cube_contact projection, cached in
+    # grasp_selection/fingertip_contacts.json so training doesn't need the gitignored
+    # ultradex_repo/URDF present). Dense, ungated, no thumb/finger split (see doc).
+    grasp_reach = RewTerm(
+        func=mdp.grasp_reach_reward,
+        weight=1.0,
+        params={"robot_cfg": SceneEntityCfg("robot", body_names=_RIGHT_HAND_BODIES[1:]), "std": 0.05},
     )
 
     # Aggregated action penalties (function returns positive, weight applies negative sign)
@@ -835,9 +848,16 @@ class G1RightArmLiftEnvCfg_V2(ManagerBasedRLEnvCfg):
             # --- BASIC SIMULATION SETTINGS ---
             self.decimation = 4             
             self.episode_length_s = 8.0     
-            self.sim.dt = 1 / 120           
+            self.sim.dt = 1 / 120
             self.sim.render_interval = self.decimation
             self.sim.physx.bounce_threshold_velocity = 0.2
+            # CCD (continuous collision detection): default is off, which lets fast-moving
+            # small colliders (5cm cubes, closing fingertips) tunnel through each other within
+            # a single physics substep. Enabling this adds a second broad-phase pass that
+            # catches those cases -- addresses visible hand/cube interpenetration at close-up
+            # camera zoom. Global PhysX setting (isaaclab.sim.SimulationCfg.PhysxCfg), not
+            # per-body.
+            self.sim.physx.enable_ccd = True
 
             # --- OPTIMIZED GPU BUFFERS FOR 8192 ENVS ---
             # Dropped from 10M to 2M to save VRAM and speed up iteration loops

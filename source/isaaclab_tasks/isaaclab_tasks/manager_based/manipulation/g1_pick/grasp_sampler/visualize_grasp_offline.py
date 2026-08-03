@@ -103,7 +103,7 @@ def build_scene(joint_q, palm_pos, palm_quat, cube_size, mode="mesh",
     cube.visual.face_colors = [220, 60, 60, 170]  # translucent red so fingers show through
     scene.add_geometry(cube, geom_name="cube", node_name="cube")
 
-    if mode in ("mesh", "contacts"):
+    if mode in ("mesh", "contacts", "mesh_and_spheres"):
         n = 0
         for link_name, mesh_path, T_vis in _urdf_visuals(urdf_path):
             if link_name not in links or not os.path.isfile(mesh_path):
@@ -115,7 +115,7 @@ def build_scene(joint_q, palm_pos, palm_quat, cube_size, mode="mesh",
             n += 1
         print(f"  placed {n} hand link meshes")
 
-    if mode in ("spheres", "contacts"):
+    if mode in ("spheres", "contacts", "mesh_and_spheres"):
         spheres = load_spheres(robot_yaml)
         n_touch = n_far = 0
         for link_name, lst in spheres.items():
@@ -132,7 +132,8 @@ def build_scene(joint_q, palm_pos, palm_quat, cube_size, mode="mesh",
                 sph.apply_transform(T)
                 sph.visual.face_colors = ([60, 220, 120, 210] if touching
                                           else [70, 190, 230, 120])
-                scene.add_geometry(sph, node_name=f"sph_{link_name}_{n_touch + n_far}")
+                sph_name = f"sph_{link_name}_{n_touch + n_far}"
+                scene.add_geometry(sph, geom_name=sph_name, node_name=sph_name)
                 n_touch += int(touching)
                 n_far += int(not touching)
         print(f"  placed {n_touch} contacting sphere(s)" + (f" + {n_far} non-contacting" if n_far else ""))
@@ -152,18 +153,34 @@ def _preview_png(scene: trimesh.Scene, path: str, title: str) -> None:
     fig = plt.figure(figsize=(13, 6))
     for k, (elev, azim) in enumerate([(22, 45), (22, 135)]):
         ax = fig.add_subplot(1, 2, k + 1, projection="3d")
+        sphere_centers, sphere_colors, sphere_sizes = [], [], []
         for name, geom in scene.geometry.items():
             if not isinstance(geom, trimesh.Trimesh) or len(geom.faces) == 0 or name == "axes":
                 continue
             is_cube = name == "cube"
+            is_sphere = name.startswith("sph_")
+            if is_sphere:
+                # mplot3d has no real z-buffer, so overlapping Poly3DCollections (mesh vs.
+                # tiny spheres) sort unreliably and the spheres vanish behind the hand.
+                # Draw spheres as scatter points instead -- far more reliably visible,
+                # and drawn in a final pass so they sit on top.
+                fc = np.asarray(geom.visual.face_colors[0], dtype=float) / 255.0
+                sphere_centers.append(geom.vertices.mean(axis=0))
+                sphere_colors.append(tuple(fc.tolist()))
+                sphere_sizes.append(float(geom.bounding_sphere.primitive.radius) * 6000)
+                continue
             # Render each part's CONVEX HULL: matplotlib can't depth-sort a dense mesh,
             # and random triangle subsampling turns the hand into confetti. Per-link hulls
             # keep every finger segment as a readable solid.
             tris = geom.triangles if is_cube else geom.convex_hull.triangles
-            col = (0.88, 0.22, 0.22, 0.45) if is_cube else (0.55, 0.60, 0.68, 0.80)
+            col = (0.88, 0.22, 0.22, 0.45) if is_cube else (0.55, 0.60, 0.68, 0.55)
             ax.add_collection3d(
                 Poly3DCollection(tris, facecolors=col, edgecolors=(0.25, 0.28, 0.32, 0.35), linewidths=0.2)
             )
+        if sphere_centers:
+            pts = np.array(sphere_centers)
+            ax.scatter(pts[:, 0], pts[:, 1], pts[:, 2], c=sphere_colors, s=sphere_sizes,
+                      depthshade=False, edgecolors=(0.15, 0.15, 0.15, 0.9), linewidths=0.6, zorder=10)
         ax.set_xlim(-0.13, 0.13); ax.set_ylim(-0.13, 0.13); ax.set_zlim(-0.13, 0.13)
         ax.set_box_aspect([1, 1, 1]); ax.view_init(elev=elev, azim=azim)
         ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_zlabel("z")
@@ -192,8 +209,10 @@ def main() -> None:
     ap.add_argument("--stage", type=int, default=1, choices=[0, 1, 2],
                     help="0=pregrasp, 1=grasp (default), 2=squeeze")
     ap.add_argument("--cube", type=float, default=2 * CUBE_HALF_EDGE, help="cube edge length (m)")
-    ap.add_argument("--mode", choices=["mesh", "spheres", "contacts"], default="mesh",
-                    help="hand representation")
+    ap.add_argument("--mode", choices=["mesh", "spheres", "contacts", "mesh_and_spheres"], default="mesh",
+                    help="hand representation. mesh_and_spheres = full mesh + ALL collision "
+                         "spheres (green=touching the cube, blue=not) -- everything the "
+                         "policy's grasp_reach/optimizer actually sees.")
     ap.add_argument("--out", default=None, help="output basename (default: grasp_viz/grasp_<idx>_<mode>)")
     ap.add_argument("--no-png", action="store_true", help="skip the matplotlib preview")
     args = ap.parse_args()

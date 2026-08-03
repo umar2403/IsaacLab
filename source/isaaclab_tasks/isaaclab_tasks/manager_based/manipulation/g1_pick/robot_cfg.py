@@ -26,13 +26,20 @@ G1_INSPIRE_CFG = ArticulationCfg(
             angular_damping=0.0,
             max_linear_velocity=1000.0,
             max_angular_velocity=1000.0,
-            max_depenetration_velocity=1.0,
+            # Was 1.0. Tried 5.0 first (measured ~2.8cm steady-state finger/cube overlap under
+            # continuous PD closing force) -- that overcorrected: it visibly launched the cube
+            # away from the hand for long stretches (explosive separation from injecting too
+            # much corrective velocity), which is worse than the original overlap and also a
+            # policy trained at 1.0 now facing very different contact dynamics. Settled on a
+            # gentler bump instead, paired with more solver iterations below (which improve
+            # contact accuracy without adding velocity/momentum, a safer lever).
+            max_depenetration_velocity=2.0,
         ),
         articulation_props=sim_utils.ArticulationRootPropertiesCfg(
             enabled_self_collisions=False,
-            solver_position_iteration_count=32,
+            solver_position_iteration_count=48,  # was 32 -- more accurate contact resolution
             solver_velocity_iteration_count=4,
-            # fix_root_link=True, 
+            # fix_root_link=True,
         ),
     ),
     init_state=ArticulationCfg.InitialStateCfg(

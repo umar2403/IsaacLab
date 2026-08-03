@@ -13,6 +13,7 @@ the palm pose and the six proximal hand joints toward that goal grasp.
 
 from __future__ import annotations
 
+import json
 import os
 import numpy as np
 import torch
@@ -286,3 +287,62 @@ def grasp_goal_hand_config_reward(
     q = robot.data.joint_pos[:, term._hand_joint_ids]
     q_err = torch.norm(q - term.goal_hand_q, dim=1)
     return gate * (1.0 - torch.tanh(q_err / q_std))
+
+
+# Cached fingertip target contact points for the active grasp (see MDP_REPORT.md §5.2.4).
+# Computed offline by scratchpad/compute_fingertip_contacts.py from the grasp_selection
+# optimizer's own cube_contact() projection -- reused here purely as geometry, not for
+# re-selecting a grasp. Cached (not recomputed from the gitignored ultradex_repo/URDF at
+# runtime) so training doesn't depend on those assets being present, same idiom as
+# grasp_selection/scores.json.
+_FINGERTIP_CONTACTS_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "grasp_selection", "fingertip_contacts.json",
+)
+# order must match the tracked fingertip bodies [R_thumb_distal, R_index_intermediate,
+# R_middle_intermediate, R_ring_intermediate, R_pinky_intermediate] i.e. _RIGHT_HAND_BODIES[1:]
+_FINGERTIP_ORDER = ["thumb", "index", "middle", "ring", "pinky"]
+
+
+def grasp_reach_reward(
+    env: ManagerBasedRLEnv,
+    robot_cfg: SceneEntityCfg,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("target_object"),
+    std: float = 0.05,
+    contacts_file: str = _FINGERTIP_CONTACTS_FILE,
+) -> torch.Tensor:
+    """Pulls each of the 5 tracked fingertips toward its OWN target contact point on
+    the cube surface for the active grasp, instead of one shared centroid target
+    (c.f. compute_task_reward's reach_rew). Dense, ungated. Uses mean-of-tanh (not
+    tanh-of-mean) so one badly-placed finger isn't washed out by four good ones --
+    see MDP_REPORT.md §5.2.4 for the full derivation and design rationale.
+
+    robot_cfg.body_ids must resolve to the 5 fingertip bodies in the order
+    [thumb, index, middle, ring, pinky] (_RIGHT_HAND_BODIES[1:]), matching the
+    cached contact points' fingertip_order.
+    """
+    if not hasattr(env, "_grasp_reach_contacts_obj"):
+        with open(contacts_file) as f:
+            data = json.load(f)
+        assert data["fingertip_order"] == _FINGERTIP_ORDER, (
+            f"cached fingertip order {data['fingertip_order']} != expected {_FINGERTIP_ORDER}"
+        )
+        env._grasp_reach_contacts_obj = torch.tensor(
+            data["contact_pos_cube_frame"], dtype=torch.float32, device=env.device
+        )  # (5,3), constant, in the cube's own object frame
+
+    robot: Articulation = env.scene[robot_cfg.name]
+    obj: RigidObject = env.scene[object_cfg.name]
+
+    tips_w = robot.data.body_pos_w[:, robot_cfg.body_ids]  # (N,5,3)
+    cube_quat = obj.data.root_quat_w                        # (N,4)
+    cube_pos = obj.data.root_pos_w                          # (N,3)
+
+    n = tips_w.shape[0]
+    contacts_obj = env._grasp_reach_contacts_obj.unsqueeze(0).expand(n, -1, -1).reshape(-1, 3)
+    cube_quat_exp = cube_quat.unsqueeze(1).expand(-1, 5, -1).reshape(-1, 4)
+    cube_pos_exp = cube_pos.unsqueeze(1).expand(-1, 5, -1).reshape(-1, 3)
+    targets_w = (quat_apply(cube_quat_exp, contacts_obj) + cube_pos_exp).view(n, 5, 3)
+
+    d = torch.norm(tips_w - targets_w, dim=-1)  # (N,5)
+    return (1.0 - torch.tanh(d / std)).mean(dim=-1)

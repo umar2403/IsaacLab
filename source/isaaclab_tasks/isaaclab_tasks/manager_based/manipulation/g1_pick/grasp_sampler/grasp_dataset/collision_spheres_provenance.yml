@@ -1,0 +1,13 @@
+hand_base_link: own visual mesh (no collision .obj exists)
+thumb_proximal_base: own collision mesh
+thumb_proximal: own collision mesh
+thumb_intermediate: own collision mesh
+thumb_distal: own collision mesh
+index_proximal: own collision mesh
+index_intermediate: own collision mesh
+middle_proximal: 'SUBSTITUTE: index_proximal mesh (no own mesh exists)'
+middle_intermediate: own collision mesh
+ring_proximal: 'SUBSTITUTE: index_proximal mesh (no own mesh exists)'
+ring_intermediate: 'SUBSTITUTE: index_intermediate mesh (no own mesh exists)'
+pinky_proximal: 'SUBSTITUTE: index_proximal mesh (no own mesh exists)'
+pinky_intermediate: own collision mesh

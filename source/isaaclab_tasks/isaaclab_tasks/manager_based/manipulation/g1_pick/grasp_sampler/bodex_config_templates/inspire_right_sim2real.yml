@@ -1,0 +1,108 @@
+robot_cfg:
+  kinematics:
+    use_root_pose: true
+    hand_pose_transfer_path: hand_pose_transfer/inspire.yml
+    usd_path: ''
+    usd_robot_root: /robot
+    isaac_usd_path: ''
+    usd_flip_joints: {}
+    usd_flip_joint_limits: []
+    urdf_path: robot/inspire_hand/inspire_hand_right.urdf
+    asset_root_path: robot/inspire_hand
+    base_link: base
+    ee_link: thumb_tip
+    link_names: [index_tip, middle_tip, ring_tip, pinky_tip]
+    lock_joints: null
+    extra_links: null
+    collision_link_names: [hand_base_link, thumb_proximal_base, thumb_proximal, thumb_intermediate,
+      thumb_distal, index_proximal, index_intermediate, middle_proximal, middle_intermediate,
+      ring_proximal, ring_intermediate, pinky_proximal, pinky_intermediate]
+    collision_spheres:
+      hand_base_link:
+      - center: [0.00078, -0.01911, -0.02676]
+        radius: 0.012
+      - center: [0.00888, -0.13855, -0.02237]
+        radius: 0.012
+      thumb_proximal_base:
+      - center: [0.00096, 0.00464, -0.01262]
+        radius: 0.008
+      - center: [0.00332, -0.00812, -0.00274]
+        radius: 0.008
+      thumb_proximal:
+      - center: [0.05491, 0.02631, -0.00218]
+        radius: 0.008
+      - center: [0.02222, 0.03281, -0.01095]
+        radius: 0.008
+      thumb_intermediate:
+      - center: [0.00921, -0.01411, -0.01192]
+        radius: 0.007
+      - center: [-0.00489, 0.00168, -0.00316]
+        radius: 0.007
+      thumb_distal:
+      - center: [0.01103, 0.00865, -0.0126]
+        radius: 0.007
+      - center: [-0.00479, 0.00125, -0.0038]
+        radius: 0.007
+      index_proximal:
+      - center: [0.00349, 0.02887, -0.006]
+        radius: 0.008
+      - center: [-0.00113, -0.00642, -0.00414]
+        radius: 0.008
+      index_intermediate:
+      - center: [-0.00091, -0.0027, -0.00824]
+        radius: 0.007
+      - center: [0.00124, 0.01991, -0.00634]
+        radius: 0.007
+      middle_proximal:
+      - center: [0.00569, 0.03252, -0.006]
+        radius: 0.008
+      - center: [0.00485, -0.00765, -0.01208]
+        radius: 0.008
+      middle_intermediate:
+      - center: [-0.00604, 0.0384, -0.00562]
+        radius: 0.007
+      - center: [0.00097, -0.00611, -0.00448]
+        radius: 0.007
+      ring_proximal:
+      - center: [-0.00099, -0.00427, -0.00656]
+        radius: 0.008
+      ring_intermediate:
+      - center: [0.00388, 0.02553, 0.00016]
+        radius: 0.007
+      - center: [-0.00357, 0.04385, -0.003]
+        radius: 0.007
+      pinky_proximal:
+      - center: [0.00253, 0.03502, -0.00834]
+        radius: 0.008
+      - center: [0.00981, -0.00391, -0.00266]
+        radius: 0.008
+      pinky_intermediate:
+      - center: [-0.00184, -0.00393, -0.00715]
+        radius: 0.007
+      - center: [0.00642, 0.02623, -0.00671]
+        radius: 0.007
+    collision_sphere_buffer: 0.0
+    extra_collision_spheres: {}
+    self_collision_ignore:
+      hand_base_link: [thumb_proximal_base, index_proximal, middle_proximal, ring_proximal,
+        pinky_proximal]
+      thumb_proximal_base: [thumb_proximal]
+      thumb_proximal: [thumb_intermediate]
+      thumb_intermediate: [thumb_distal]
+      index_proximal: [index_intermediate]
+      middle_proximal: [middle_intermediate]
+      ring_proximal: [ring_intermediate]
+      pinky_proximal: [pinky_intermediate]
+    self_collision_buffer: {}
+    use_global_cumul: true
+    mesh_link_names: [hand_base_link, thumb_proximal_base, thumb_proximal, thumb_intermediate,
+      thumb_distal, index_proximal, index_intermediate, middle_proximal, middle_intermediate,
+      ring_proximal, ring_intermediate, pinky_proximal, pinky_intermediate]
+    cspace:
+      joint_names: [thumb_proximal_yaw_joint, thumb_proximal_pitch_joint, index_proximal_joint,
+        middle_proximal_joint, ring_proximal_joint, pinky_proximal_joint]
+      retract_config: [0.7, 0.0, 0.0, 0.0, 0.0, 0.0]
+      null_space_weight: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+      cspace_distance_weight: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+      max_jerk: 500.0
+      max_acceleration: 15.0

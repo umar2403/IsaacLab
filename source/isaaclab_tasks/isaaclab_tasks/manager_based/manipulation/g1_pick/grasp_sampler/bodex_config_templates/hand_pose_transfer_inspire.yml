@@ -1,0 +1,18 @@
+# DRAFT v2 -- format now matches the REAL file
+# (ultradex_repo/third_party/BODex_api/src/bodex/content/configs/robot/hand_pose_transfer/xhand.yml):
+# just a rotation matrix `r` and translation `t` under one `hand_base_link` key.
+#
+# Target path: ultradex_repo/third_party/BODex_api/src/bodex/content/configs/robot/hand_pose_transfer/inspire.yml
+#
+# xhand's own r is NOT identity ([[0,0,-1],[0,1,0],[1,0,0]]) -- that 90 degree
+# permutation is specific to how XHand's root frame was set up relative to BODex's
+# canonical grasp frame. Misc./UltraDex.md S2.2 states this is a DIFFERENT, Inspire-
+# specific fact (not something to copy from xhand): "For the Inspire URDF the root
+# frame already matches this convention, so the rotation is identity; the translation
+# t = [0, 0, -0.09] pulls the root back 9 cm so the palm center lands on the sampled
+# approach point." That numeric fact is trustworthy (from the original porting work);
+# only the KEY NAMES below were corrected against the real schema.
+
+hand_base_link:
+  r: [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+  t: [0.0, 0.0, -0.09]

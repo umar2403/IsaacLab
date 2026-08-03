@@ -105,40 +105,380 @@ No observation noise is added (`enable_corruption = False`). All positions are e
 
 ## 5. Reward Function
 
-All rewards are computed per-step. The active reward in the environment config is `compute_task_reward` (defined inline in `g1_pick_env_cfg.py`) plus five penalty terms.
+> **Rewritten from source on 2026-07-30.** The previous version of this section only
+> covered `compute_task_reward` and the 5 penalty terms — **6 terms total**. The
+> active config on `umar/g1-pick-no-topdown` has **8 reward terms**: it also carries
+> two grasp-goal pose-mimicking terms (`grasp_goal_palm`, `grasp_goal_hand`) that this
+> section previously omitted entirely, and `compute_task_reward` itself is called with
+> different parameters on this branch (`use_posture=False`, `pose_gated_success=True`)
+> than the version originally documented here. Everything below is verified against the
+> current `g1_pick_env_cfg.py` and `mdp/grasp_goal.py`.
 
-### 5a. Task Reward (weight 1.0)
+All reward terms are computed every control step (30 Hz) and summed with their configured
+weight.
 
-A **single hierarchical shaping function** that returns the sum of five sub-rewards:
+### 5.0 Term overview
 
-```
-R_task = R_posture + R_reach + 2·R_grasp + R_lift_cont + R_success
-```
+| Term | Weight | Role |
+|---|---:|---|
+| `task_reward` | $1.0$ | reach + grasp + lift + pose-gated success — §5.1 |
+| `grasp_goal_palm` | $2.0$ | pulls the palm toward the UltraDexGrasp goal pose — §5.2.1 |
+| `grasp_goal_hand` | $1.0$ | pulls the 6 finger joints toward the goal hand shape, gated on palm proximity — §5.2.2 |
+| `action_smoothness` | $-3.0$ | penalizes jerky actions / high joint velocity |
+| `fingertip_impact` | $-2.0$ | penalizes sudden hand-body acceleration (slams) |
+| `distractor_accel` | $-3.0$ | penalizes sudden distractor acceleration (bumps) |
+| `distractor_off_tray` | $-10.0$ | per-step penalty while any distractor sits below tray height |
+| `distractor_drop` | $-100.0$ | one-time penalty (+ termination) if any distractor falls off the table |
+| `grasp_reach` | $1.0$ | pulls each fingertip toward its own contact point on the cube — §5.2.4 |
 
-| Sub-reward | Formula | Range | Purpose |
-|-----------|---------|-------|---------|
-| **Posture** | `1 − tanh(clamp(‖palm − (cube+0.08ẑ)‖ − 0.03, 0) / 0.3)` | [0, 1] | Palm hovers 8 cm above cube |
-| **Reach** | `1 − tanh(‖fingertip_midpoint − cube‖ / 0.25)` | [0, 1] | Finger cluster centroid near cube |
-| **Grasp** | `0.5·(1−tanh(thumb_dist/0.055)) + 0.5·(1−tanh(finger_dist/0.055))` | [0, 1] | Both thumb and fingers within 2.5 cm of cube surface (25 mm deadband) |
-| **Lift (cont.)** | `clamp(cube_z − 0.845, 0, 0.30) × 2.0 × is_grasped` | [0, 0.6] | Proportional to lift height, gated by grasp quality |
-| **Success bonus** | `is_lifted × is_grasped × 1000.0` | {0, 1000} | Sparse: cube above 1.134 m AND grasped |
+**Two different bodies are both informally "the palm" in this codebase — keep them
+distinct:**
 
-**Grasp gate** used for lift/success:
-```
-is_grasped = (1 − tanh(thumb_dist/0.06)) × (1 − tanh(finger_dist/0.06))
-```
+- `right_wrist_yaw_link` — read by `compute_task_reward`'s (currently disabled) posture
+  term.
+- `R_hand_base_link` — read by both grasp-goal terms (§5.2) and by the pose-gated
+  success bonus (§5.1.6). The two links sit a few centimeters apart.
 
-**Drop override**: If `cube_z < 0.600` (fell off table), the entire task reward is replaced with **−0.5**.
+### 5.1 Task reward — `compute_task_reward` (weight $1.0$)
 
-### 5b. Penalty Terms
+Let $\mathbf{p}_c \in \mathbb{R}^3$ be the cube position, $\mathbf{p}_{\text{palm}}$ the
+`right_wrist_yaw_link` position, and $\{\mathbf{p}_{\text{tip},i}\}_{i=0}^{4}$ the 5
+tracked fingertip bodies ($i=0$: thumb, $i=1\ldots4$: index/middle/ring/pinky).
 
-| Term | Weight | Function | Purpose |
-|------|--------|----------|---------|
-| `action_smoothness` | −3.0 | `0.005·Σ(aₜ−aₜ₋₁)² + 0.001·Σω²` | Penalizes jerky motions and joint velocities |
-| `fingertip_impact` | −2.0 | `mean(tanh(‖Δv_fingertip‖ / 3.0))` over 6 hand bodies | Penalizes sudden hand acceleration (slam/jab contact) |
-| `distractor_accel` | −3.0 | `mean(tanh(‖Δv_distractor‖ / 2.0))` over 10 distractors | Penalizes bumping/knocking distractors |
-| `distractor_off_tray` | −10.0 | Count of distractors with `z < 0.835` per step | Per-step accumulating penalty for each cube off the tray |
-| `distractor_drop` | −100.0 | 1 if ANY distractor `z < 0.600` | Sparse terminal penalty for knocking a distractor off the table |
+**Deadband distances** (subtract the cube's 2.5 cm half-edge, so touching the surface
+reads as zero):
+
+$$
+d_{\text{thumb}} = \max\!\Big(\lVert \mathbf{p}_{\text{tip},0} - \mathbf{p}_c \rVert - 0.025,\ 0\Big)
+\qquad
+d_{\text{finger}} = \max\!\Big(\tfrac{1}{4}\textstyle\sum_{i=1}^{4}\lVert \mathbf{p}_{\text{tip},i} - \mathbf{p}_c \rVert - 0.025,\ 0\Big)
+$$
+
+#### 5.1.1 Posture reward — **disabled** on this branch (`use_posture=False`)
+
+$$
+r_{\text{posture}} =
+\begin{cases}
+\displaystyle 1 - \tanh\!\frac{\max\big(\lVert \mathbf{p}_{\text{palm}} - (\mathbf{p}_c + [0,0,0.08])\rVert - 0.03,\ 0\big)}{0.3} & \texttt{use\_posture=True} \\[6pt]
+0 & \texttt{use\_posture=False\ (current)}
+\end{cases}
+$$
+
+Why it's off: this term hard-codes the palm target 8 cm **straight above** the cube — a
+top-down assumption. Grasp #12 is a ~65° side approach, so this term would fight the
+grasp-goal palm reward (§5.2.1) instead of agreeing with it. Palm placement is now owned
+entirely by `grasp_goal_palm`.
+
+#### 5.1.2 Reach reward
+
+Centroid of all 5 fingertips toward the cube:
+
+$$
+\bar{\mathbf{p}}_{\text{tip}} = \frac{1}{5}\sum_{i=0}^{4} \mathbf{p}_{\text{tip},i}
+\qquad
+r_{\text{reach}} = 1 - \tanh\!\left(\frac{\lVert \bar{\mathbf{p}}_{\text{tip}} - \mathbf{p}_c \rVert}{0.25}\right)
+$$
+
+#### 5.1.3 Grasp reward
+
+$$
+r_{\text{thumb}} = 1 - \tanh\!\left(\frac{d_{\text{thumb}}}{0.055}\right)
+\qquad
+r_{\text{finger}} = 1 - \tanh\!\left(\frac{d_{\text{finger}}}{0.055}\right)
+\qquad
+r_{\text{grasp}} = \frac{r_{\text{thumb}} + r_{\text{finger}}}{2}
+$$
+
+Counted with weight $2$ inside the task-reward sum (§5.1.7).
+
+#### 5.1.4 Grasp gate
+
+Soft AND of "thumb close" and "fingers close", used to gate lift + success so the policy
+can't earn them by shoving the cube with an open palm:
+
+$$
+g = \Big(1 - \tanh\tfrac{d_{\text{thumb}}}{0.06}\Big)\Big(1 - \tanh\tfrac{d_{\text{finger}}}{0.06}\Big) \ \in [0,1]
+$$
+
+#### 5.1.5 Continuous lift reward
+
+$$
+\Delta h = \operatorname{clamp}(p_{c,z} - 0.845,\ 0,\ 0.30)
+\qquad
+r_{\text{lift}} = 2.0\,\Delta h \cdot g \ \in [0,\ 0.6]
+$$
+
+#### 5.1.6 Success bonus — now **pose-gated** (`pose_gated_success=True`)
+
+This is where the grasp goal reaches into the terminal bonus. Every step the live goal
+is re-attached to the cube's current pose (mechanism shared with §5.2), then compared
+against the current `R_hand_base_link` pose $(\mathbf{p}_{\text{hand}}, \mathbf{q}_{\text{hand}})$
+against the goal $(\mathbf{p}^\star, \mathbf{q}^\star)$:
+
+$$
+e_{\text{pos}} = \lVert \mathbf{p}_{\text{hand}} - \mathbf{p}^\star \rVert
+\qquad
+e_{\text{ang}} = \operatorname{quat\_error\_magnitude}(\mathbf{q}_{\text{hand}}, \mathbf{q}^\star) \ \in [0,\pi]
+$$
+
+$$
+\text{pose\_match} = \Big(1 - \tanh\tfrac{e_{\text{pos}}}{0.10}\Big)\Big(1 - \tanh\tfrac{e_{\text{ang}}}{0.8}\Big) \ \in [0,1]
+$$
+
+$$
+\text{success\_scale} = \underbrace{0.2}_{\text{success\_floor}} + (1-0.2)\cdot\text{pose\_match} \ \in [0.2,\ 1.0]
+$$
+
+$$
+r_{\text{success}} = \mathbb{1}[p_{c,z} > 1.134]\cdot g \cdot \text{success\_scale}\cdot 1000
+$$
+
+**Interpretation**: lifting the cube always pays **at least 200** (the `success_floor`
+$=0.2$), so the pick signal never fully vanishes even if the exact UltraDex pose proves
+unreachable — but lifting it **in grasp #12's pose** pays the full **1000**. This is a
+structural fix, not just reward shaping: instead of *adding* a small pose term next to a
+1000-point bonus (which the policy learns to ignore entirely — see `CONTEXT.md` §7–8),
+the size of the bonus itself now *depends on* the pose match.
+
+#### 5.1.7 Assembly + drop override
+
+$$
+r_{\text{task}} =
+\begin{cases}
+-0.5 & p_{c,z} < 0.600 \quad \text{(cube fell off the table)} \\[4pt]
+r_{\text{posture}} + r_{\text{reach}} + 2\,r_{\text{grasp}} + r_{\text{lift}} + r_{\text{success}} & \text{otherwise}
+\end{cases}
+$$
+
+---
+
+### 5.2 Grasp-goal pose-mimicking rewards — `grasp_goal_palm` (weight $2.0$) + `grasp_goal_hand` (weight $1.0$)
+
+These are the two terms this doc previously omitted, and the ones most worth
+understanding in detail: they pull the robot toward a **specific grasp pulled from the
+UltraDexGrasp/BODex library** (`grasp_sampler/grasp_dataset/cube_5cm_grasps_valid.npz`),
+rather than just rewarding "get close to the cube center" the way §5.1 does.
+
+**The goal itself.** At every episode reset, the `sample_grasp_goal` event term
+(`mdp/grasp_goal.py`) assigns the **same fixed library entry to every environment** —
+currently **grasp #12**, the sphere-contact-gated FSWO optimizer's pick (a 5-finger
+envelope wrap; confirmed reachable off-center by the arm, unlike the far-tray positions
+where no grasp in the library works because the arm physically can't reach). This
+produces three per-env goal buffers, all in **world frame**:
+
+- $\mathbf{p}^\star \in \mathbb{R}^3$ — target `R_hand_base_link` position (`goal_pos_w`)
+- $\mathbf{q}^\star \in \mathbb{R}^4$ — target `R_hand_base_link` orientation (`goal_quat_w`)
+- $\mathbf{q}^\star_{\text{hand}} \in \mathbb{R}^6$ — target 6 proximal joint angles, in
+  policy joint order (`goal_hand_q`)
+
+Because grasp #12 is stored **relative to the cube**, $\mathbf{p}^\star$ and
+$\mathbf{q}^\star$ are **re-attached to the cube's live pose every step**
+(`update_live_goals`, cached per `env.common_step_counter` so it only recomputes once
+even though both reward terms call it):
+
+$$
+\mathbf{p}^\star_t = R(\mathbf{q}_{\text{cube},t})\,\mathbf{p}^\star_{\text{obj}} + \mathbf{p}_{\text{cube},t}
+\qquad
+\mathbf{q}^\star_t = \mathbf{q}_{\text{cube},t} \otimes \mathbf{q}^\star_{\text{obj}}
+$$
+
+where $\mathbf{p}^\star_{\text{obj}}, \mathbf{q}^\star_{\text{obj}}$ are grasp #12's pose
+in the cube's own frame (constant, loaded once from the `.npz` at env construction).
+Without this live re-attachment, the goal would freeze at the cube's spawn pose — the
+moment anything nudges the cube, the reward would point at empty air (this was an
+actual bug early in the project; see `grasp_sampler/README.md` problem #14).
+
+#### 5.2.1 Palm-pose reward — `grasp_goal_palm_reward` (weight $2.0$)
+
+Pulls `R_hand_base_link` toward $(\mathbf{p}^\star, \mathbf{q}^\star)$ — position **and**
+orientation, in the current config (`pos_mode="full"`):
+
+$$
+d_{\text{pos}} = \lVert \mathbf{p}_{\text{hand}} - \mathbf{p}^\star \rVert
+\qquad
+d_{\text{ang}} = \operatorname{quat\_error\_magnitude}(\mathbf{q}_{\text{hand}}, \mathbf{q}^\star)
+$$
+
+$$
+r_{\text{pos}} = 1 - \tanh\!\left(\frac{d_{\text{pos}}}{0.15}\right)
+\qquad
+r_{\text{orient}} = 1 - \tanh\!\left(\frac{d_{\text{ang}}}{0.6}\right)
+$$
+
+$$
+r_{\text{palm}} = (1-w_o)\, r_{\text{pos}} + w_o\, r_{\text{orient}}, \qquad w_o = 0.5
+$$
+
+i.e. $r_{\text{palm}} = 0.5\, r_{\text{pos}} + 0.5\, r_{\text{orient}} \in [0,1]$. This is
+a **dense, ungated** reward — it pays from anywhere in the workspace, purely as a
+function of how close the hand's pose is to the goal, every single step.
+
+(`pos_mode` also supports `"height"`, which would reward only the vertical offset
+$|\,p_{\text{hand},z} - p^\star_z\,|$ — meant for when a separate posture term already
+centers the palm horizontally. Not used here since `use_posture=False`.)
+
+#### 5.2.2 Hand-configuration reward — `grasp_goal_hand_config_reward` (weight $1.0$)
+
+Pulls the 6 controllable proximal joints $\mathbf{q} \in \mathbb{R}^6$ toward the goal's
+joint angles $\mathbf{q}^\star_{\text{hand}}$ — but **gated** on palm proximity, so the
+policy can't get finger-shape credit while the hand is still across the room:
+
+$$
+\text{gate} = \operatorname{clamp}\!\left(1 - \tanh\frac{d_{\text{pos}}}{0.20},\ 0,\ \infty\right)
+$$
+
+$$
+r_{\text{hand}} = \text{gate}\cdot\left(1 - \tanh\frac{\lVert \mathbf{q} - \mathbf{q}^\star_{\text{hand}}\rVert}{0.5}\right)
+$$
+
+The gate reuses the **same** $d_{\text{pos}}$ from §5.2.1, but with its own width ($0.20$
+m vs. $0.15$ m) — wide enough that the finger-shaping signal starts to switch on well
+before the palm has fully arrived, giving a smooth handoff instead of a cliff.
+
+#### 5.2.3 Four independent pose-matching signals — don't conflate them
+
+It's tempting to think of this as one "match the grasp" reward. There are actually
+**four**, all reading the same live goal but with different tolerances and different
+jobs:
+
+| # | Where | Std devs | When it pays | Job |
+|---|---|---|---|---|
+| 1 | `grasp_goal_palm` (§5.2.1) | $0.15$ m pos / $0.6$ rad ang | dense, every step | pulls the palm toward the goal pose continuously |
+| 2 | `grasp_goal_hand` (§5.2.2) | gate $0.20$ m; joint std $0.5$ rad | dense, once palm-gated | pulls fingers toward the goal *joint angles* once the palm is close |
+| 3 | pose-gated success (§5.1.6) | $0.10$ m pos / $0.8$ rad ang | **only at the instant of a successful lift** | scales the terminal 1000-point bonus by pose quality |
+| 4 | `grasp_reach` (§5.2.4) | $\sigma_{\text{reach}}=0.05$ m per finger | dense, every step | pulls each fingertip toward its own *Cartesian contact point* on the cube |
+
+Per `CONTEXT.md` §7–8, signal (1) has sat essentially flat at $\approx 0.028$–$0.030$
+across 6000+ training iterations despite being dense and weighted $2.0$ — the policy
+isn't moving toward grasp #12's pose at all, even though it picks the cube reliably
+(94–96%) using whatever grasp it discovered on its own. That's the open problem this
+whole reward structure exists to diagnose. Now that reachability of #12 is confirmed
+(your IK check), signal (4) is a complementary shaping term that attacks the same
+problem from task space instead of configuration space — see the rationale in §5.2.4.
+
+#### 5.2.4 Fingertip contact-point reward — `grasp_reach` (weight $1.0$, implemented 2026-07-30)
+
+**Motivation.** Signal (2), `grasp_goal_hand`, matches the policy's 6 proximal **joint
+angles** to grasp #12's joint angles. But joint-space matching is once removed from what
+actually matters: whether each fingertip lands on the *specific patch of cube surface*
+the optimizer identified as a good contact (per `grasp_selection`'s sphere-contact
+scoring — §"Grasp gate" in `OPTIMIZER_IMPLEMENTATION_SPEC.md`). Two hands with slightly
+different joint angles can produce nearly the same fingertip placement, and — per
+`grasp_sampler/README.md` Discovery 2 — the synthesis URDF and the simulated USD hand are
+known to disagree geometrically by 1–3 cm at the fingertips, so joint-angle matching
+doesn't guarantee contact-point matching anyway. A reward defined directly in **task
+space** (Cartesian distance from real fingertip to intended contact point) is more
+directly tied to what a good grasp physically requires, and is robust to that model
+mismatch in a way joint matching isn't.
+
+**Fingertips vs. collision spheres.** The offline optimizer scores wrap quality using
+~41 collision spheres across the whole hand (§"Version 2" of the optimizer spec), not
+just the 5 fingertips. In principle the online reward could do the same. My
+recommendation, matching your instinct: **use the 5 fingertips**, not the spheres, for
+this online term:
+
+- The 5 fingertip bodies are *already* tracked (`_RIGHT_HAND_BODIES`) and already read by
+  `compute_task_reward`'s reach/grasp terms — no new body tracking, no new per-step FK.
+- Tracking ~41 spheres online would mean live-FK'ing ~13 hand links every step for every
+  parallel env — real engineering cost for what's likely marginal benefit here: the
+  spheres already did their job *offline* (they're why grasp #12 was selected as the
+  best wrap in the first place). The online reward doesn't need to re-derive wrap
+  quality; it just needs to nudge the policy toward the finger placement that a
+  pre-vetted grasp already specifies.
+- If fingertip-only guidance turns out to be too coarse (e.g. the policy matches the 5
+  tip points but still doesn't wrap correctly), sphere-based shaping is the natural
+  escalation — but it's not the right place to start.
+
+**Target contact points (precomputed offline, cached, loaded lazily at runtime).**
+`ultradex_repo/` (the URDF + collision-sphere YAML `grasp_selection` needs for FK) is
+gitignored and not present in every checkout — the same reason `get_optimal_grasp_idx()`
+falls back to the cached `scores.json` instead of recomputing from the optimizer every
+time. This term follows the identical idiom: `grasp_selection/cache_fingertip_contacts.py`
+(run once against grasp #12's stored root pose $(\mathbf p_g, \mathbf q_g)$ and 6 joint
+angles $\boldsymbol\theta_g$) forward-kinematics the 5 fingertip links
+(`thumb_tip, index_tip, middle_tip, ring_tip, pinky_tip`) in the cube frame, and caches
+the result to `grasp_selection/fingertip_contacts.json` (committed to the repo). The
+reward function (`mdp.grasp_reach_reward`) just loads that cache on first call — no
+URDF/FK dependency at training time. If the optimizer's pick ever changes from #12, rerun
+the caching script.
+
+$$
+\mathbf t_i = \mathrm{FK}_i(\mathbf p_g, \mathbf q_g, \boldsymbol\theta_g), \qquad i \in \{\text{thumb, index, middle, ring, pinky}\}
+$$
+
+then project each onto the nearest cube face — exactly the `cube_contact()` step
+`grasp_selection/hand_model.py` already implements and the optimizer already uses (here
+reused purely as a geometry helper, not for re-selecting a grasp):
+
+$$
+\mathbf c^\star_i = \Pi_{\text{cube}}(\mathbf t_i), \qquad
+\Pi_{\text{cube}}(\mathbf p) = \mathbf p + \big(h\,\mathrm{sign}(p_k) - p_k\big)\hat{\mathbf e}_k,
+\quad k = \arg\max_{a\in\{x,y,z\}} \frac{|p_a|}{h},\ \ h=0.025\text{ m}
+$$
+
+This yields 5 fixed points $\mathbf c^\star_i$ in the **cube's own frame** — "where this
+fingertip should touch the cube surface for grasp #12."
+
+**Live tracking (goal follows the cube, identical mechanism to §5.2's palm/hand goals):**
+
+$$
+\mathbf c^\star_{i,t} = R(\mathbf q_{\text{cube},t})\,\mathbf c^\star_i + \mathbf p_{\text{cube},t}
+$$
+
+**Reward** — mean, over the 5 tracked fingertips, of a bounded per-finger term (the same
+mean-of-tanh style already used by `fingertip_impact`/`distractor_accel`, chosen over
+tanh-of-mean so one badly-placed finger can't be washed out by four good ones):
+
+$$
+d_{\text{reach},i} = \big\lVert \mathbf p_{\text{tip},i} - \mathbf c^\star_{i,t} \big\rVert
+$$
+
+$$
+r_{\text{grasp\_reach}} = \frac{1}{5}\sum_{i=0}^{4}\left(1 - \tanh\frac{d_{\text{reach},i}}{\sigma_{\text{reach}}}\right), \qquad \sigma_{\text{reach}} = 0.05\text{ m}
+$$
+
+Dense and **ungated** — like `grasp_goal_palm`, it should pay from anywhere in the
+workspace, since "move each fingertip toward its own target point" is meaningful at any
+distance (it's a per-finger refinement of the existing §5.1.2 reach reward, which only
+uses one shared centroid target for all 5 tips).
+
+**Plain uniform mean over the 5 fingertips — no thumb/finger split.** `compute_task_reward`'s
+`grasp_rew` (§5.1.3) splits 0.5-thumb/0.5-fingers because it compares distance to *one
+shared target* (the cube center), where a badly-placed thumb could get diluted by four
+decent fingers averaged together before the `tanh`. That risk doesn't apply here: each
+finger already has its **own unique target point**, and each is passed through `tanh`
+*individually* before averaging (mean-of-tanh, not tanh-of-mean) — so a badly-placed
+thumb still shows up as its own near-zero term regardless of the other four. The thumb's
+special importance is already encoded in *where* its target point sits (the optimizer
+chose it as the opposing contact for force closure); weighting it again here would
+double-count that.
+
+**Weight**: $w_{\text{grasp\_reach}} = 1.0$ — same order as `grasp_goal_hand`, since it
+plays a similar complementary role.
+
+$$
+r_{\text{grasp\_reach}} \cdot w_{\text{grasp\_reach}} \ \text{ (proposed addition to §5.4's total)}
+$$
+
+---
+
+### 5.3 Penalty terms
+
+| Term | Weight | Formula | Purpose |
+|---|---:|---|---|
+| `action_smoothness` | $-3.0$ | $0.005\sum_i(a_i-a_i^{\text{prev}})^2 + 0.001\sum_j \dot q_j^2$ | penalizes jerky actions and joint velocity |
+| `fingertip_impact` | $-2.0$ | $\dfrac{1}{6}\sum_{k=1}^{6}\tanh\!\big(\lVert\Delta \mathbf{v}_{\text{tip},k}\rVert/3.0\big)$ | penalizes sudden hand-body acceleration (slam/jab) |
+| `distractor_accel` | $-3.0$ | $\dfrac{1}{10}\sum_{d=1}^{10}\tanh\!\big(\lVert\Delta \mathbf{v}_d\rVert/2.0\big)$ | penalizes bumping/knocking distractors |
+| `distractor_off_tray` | $-10.0$ | $\sum_{d=1}^{10}\mathbb{1}[z_d < 0.835]$ | per-step, accumulates while any distractor sits off the tray |
+| `distractor_drop` | $-100.0$ | $\mathbb{1}[\exists\, d: z_d < 0.600]$ | one-time; episode also terminates |
+
+### 5.4 Full per-step reward
+
+$$
+R = 1.0\, r_{\text{task}} \;+\; 2.0\, r_{\text{palm}} \;+\; 1.0\, r_{\text{hand}} \;+\; 1.0\, r_{\text{grasp\_reach}}
+\;-\; 3.0\, p_{\text{smooth}} \;-\; 2.0\, p_{\text{impact}} \;-\; 3.0\, p_{\text{accel}}
+\;-\; 10.0\, p_{\text{off\_tray}} \;-\; 100.0\, p_{\text{drop}}
+$$
 
 ---
 
